@@ -4,17 +4,10 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <optional>
+#include <memory>
+#include "QueueFamilyIndices.h"
 
-struct QueueFamilyIndices
-{
-	int graphicsFamily = -1;
-	int presentFamily = -1;
-
-	bool IsComplete() const
-	{
-		return graphicsFamily != -1 && presentFamily != -1;
-	}
-};
+class VulkanSwapChain;
 
 class VulkanDevice
 {
@@ -38,6 +31,7 @@ private:
 	VkDevice logicalDevice = VK_NULL_HANDLE;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
+	std::unique_ptr<VulkanSwapChain> swapChain;
 };
 
 #endif // !VULKAN_DEVICE_H

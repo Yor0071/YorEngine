@@ -1,4 +1,5 @@
 #include "VulkanDevice.h"
+#include "VulkanSwapChain.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -7,10 +8,13 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
 {
 	PickPhysicalDevice();
 	CreateLogicalDevice(physicalDevice, surface);
+	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+	swapChain = std::make_unique<VulkanSwapChain>(physicalDevice, logicalDevice, surface, indices);
 }
 
 VulkanDevice::~VulkanDevice()
 {
+	swapChain.reset();
 	vkDestroyDevice(logicalDevice, nullptr);
 	std::cout << "Logical device destroyed" << std::endl;
 }
@@ -84,10 +88,19 @@ void VulkanDevice::CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfac
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
+	const std::vector<const char*> deviceExtensions = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	};
+
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 	createInfo.pQueueCreateInfos = queueCreateInfos.data();
+	createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+	createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+
+	VkPhysicalDeviceFeatures deviceFeatures{};
+	createInfo.pEnabledFeatures = &deviceFeatures;
 
 	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to create logical device");
