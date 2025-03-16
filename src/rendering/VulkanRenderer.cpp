@@ -12,12 +12,27 @@ VulkanRenderer::~VulkanRenderer()
 void VulkanRenderer::Init(GLFWwindow* window)
 {
 	CreateInstance();
+	CreateSurface(window);
+
+	device = new VulkanDevice(vulkanInstance, surface);
 }
 
 void VulkanRenderer::Cleanup()
 {
+	if (device)
+	{
+		delete device;
+		device = nullptr;
+	}
+
+	if (surface != VK_NULL_HANDLE)
+	{
+		vkDestroySurfaceKHR(vulkanInstance, surface, nullptr);
+		std::cout << "Window surface destroyed" << std::endl;
+		surface = VK_NULL_HANDLE;
+	}
+
 	vkDestroyInstance(vulkanInstance, nullptr);
-	std::cout << "Vulkan instance destroyed" << std::endl;
 }
 
 void VulkanRenderer::CreateInstance()
@@ -44,6 +59,16 @@ void VulkanRenderer::CreateInstance()
 	}
 
 	std::cout << "Vulkan instance created" << std::endl;
+}
+
+void VulkanRenderer::CreateSurface(GLFWwindow* window)
+{
+	if (glfwCreateWindowSurface(vulkanInstance, window, nullptr, &surface) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create window surface");
+	}
+
+	std::cout << "Window surface created" << std::endl;
 }
 
 std::vector<const char*> VulkanRenderer::GetRequiredExtensions()
