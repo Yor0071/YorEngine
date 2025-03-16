@@ -6,6 +6,7 @@
 #include <optional>
 #include <memory>
 #include "QueueFamilyIndices.h"
+#include "VulkanDepthBuffer.h"
 
 class VulkanSwapChain;
 
@@ -17,6 +18,7 @@ public:
 
 	VkPhysicalDevice GetPhysicalDevice() const { return physicalDevice; }
 	VkDevice GetLogicalDevice() const { return logicalDevice; }
+	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 private:
 	void PickPhysicalDevice();
@@ -31,7 +33,9 @@ private:
 	VkDevice logicalDevice = VK_NULL_HANDLE;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
+
 	std::unique_ptr<VulkanSwapChain> swapChain;
+	std::unique_ptr<VulkanDepthBuffer> depthBuffer;
 };
 
 #endif // !VULKAN_DEVICE_H
