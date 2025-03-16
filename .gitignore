@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+/Lib
+/x64
+YorEngine.vcxproj
+YorEngine.vcxproj.filters
