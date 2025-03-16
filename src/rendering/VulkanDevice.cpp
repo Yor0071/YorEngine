@@ -9,11 +9,14 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
 	PickPhysicalDevice();
 	CreateLogicalDevice(physicalDevice, surface);
 	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+
 	swapChain = std::make_unique<VulkanSwapChain>(physicalDevice, logicalDevice, surface, indices);
+	depthBuffer = std::make_unique<VulkanDepthBuffer>(*this, swapChain->GetSwapChainExtent());
 }
 
 VulkanDevice::~VulkanDevice()
 {
+	depthBuffer.reset();
 	swapChain.reset();
 	vkDestroyDevice(logicalDevice, nullptr);
 	std::cout << "Logical device destroyed" << std::endl;
@@ -100,6 +103,9 @@ void VulkanDevice::CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfac
 	createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
 	VkPhysicalDeviceFeatures deviceFeatures{};
+	deviceFeatures.depthClamp = VK_TRUE;
+	deviceFeatures.depthBiasClamp = VK_TRUE;
+
 	createInfo.pEnabledFeatures = &deviceFeatures;
 
 	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice) != VK_SUCCESS) {
@@ -110,6 +116,22 @@ void VulkanDevice::CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfac
 	vkGetDeviceQueue(logicalDevice, indices.presentFamily, 0, &presentQueue);
 
 	std::cout << "Logical device created" << std::endl;
+}
+
+uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+	{
+		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+		{
+			return i;
+		}
+	}
+
+	throw std::runtime_error("Failed to find suitable memory type");
 }
 
 QueueFamilyIndices VulkanDevice::FindQueueFamilies(VkPhysicalDevice device)

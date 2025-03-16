@@ -83,7 +83,7 @@ void VulkanSwapChain::CreateSwapChain()
 	swapChainImageFormat = surfaceFormat.format;
 	swapChainExtent = extent;
 
-	std::cout << "Swap chain created with" << imageCount << " images" << std::endl;
+	std::cout << "Swap chain created with " << imageCount << " images" << std::endl;
 }
 
 void VulkanSwapChain::CreateImageViews()
