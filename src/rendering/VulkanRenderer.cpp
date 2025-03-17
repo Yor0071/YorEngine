@@ -14,15 +14,35 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	CreateInstance();
 	CreateSurface(window);
 
-	device = new VulkanDevice(vulkanInstance, surface);
+	device = std::make_unique<VulkanDevice>(vulkanInstance, surface);
+
+	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
+
+	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
+
+	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
 }
 
 void VulkanRenderer::Cleanup()
 {
+	if (graphicsPipeline)
+	{
+		graphicsPipeline.reset();
+	}
+
+	if (framebuffer)
+	{
+		framebuffer.reset();
+	}
+
+	if (renderPass)
+	{
+		renderPass.reset();
+	}
+
 	if (device)
 	{
-		delete device;
-		device = nullptr;
+		device.reset();
 	}
 
 	if (surface != VK_NULL_HANDLE)

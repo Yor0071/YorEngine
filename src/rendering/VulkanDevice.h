@@ -18,6 +18,9 @@ public:
 
 	VkPhysicalDevice GetPhysicalDevice() const { return physicalDevice; }
 	VkDevice GetLogicalDevice() const { return logicalDevice; }
+	VulkanSwapChain* GetSwapChain() const { return swapChain.get(); }
+	VulkanDepthBuffer* GetDepthBuffer() const { return depthBuffer.get(); }
+
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 private:

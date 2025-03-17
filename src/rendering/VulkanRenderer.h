@@ -5,6 +5,9 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 #include "VulkanDevice.h"
+#include "VulkanRenderPass.h"
+#include "VulkanFrameBuffer.h"
+#include "VulkanGraphicsPipeline.h"
 
 class VulkanRenderer
 {
@@ -22,7 +25,11 @@ private:
 
 	VkInstance vulkanInstance;
 	VkSurfaceKHR surface;
-	VulkanDevice* device = nullptr;
+	
+	std::unique_ptr<VulkanDevice> device;
+	std::unique_ptr<VulkanRenderPass> renderPass;
+	std::unique_ptr<VulkanFramebuffer> framebuffer;
+	std::unique_ptr<VulkanGraphicsPipeline> graphicsPipeline;
 };
 
 #endif // !VULKAN_RENDERER_H
