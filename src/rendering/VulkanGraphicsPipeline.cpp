@@ -1,0 +1,112 @@
+#include "VulkanGraphicsPipeline.h"
+#include <stdexcept>
+#include <iostream>
+#include <fstream>
+
+VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, VulkanSwapChain& swapChain, VulkanRenderPass& renderPass)
+	: device(device), swapChain(swapChain), renderPass(renderPass)
+{
+	CreateGraphicsPipeline();
+}
+
+VulkanGraphicsPipeline::~VulkanGraphicsPipeline()
+{
+	if (graphicsPipeline != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(device.GetLogicalDevice(), graphicsPipeline, nullptr);
+		std::cout << "Graphics pipeline destroyed" << std::endl;
+	}
+
+	if (pipelineLayout != VK_NULL_HANDLE)
+	{
+		vkDestroyPipelineLayout(device.GetLogicalDevice(), pipelineLayout, nullptr);
+		std::cout << "Pipeline layout destroyed" << std::endl;
+	}
+}
+
+std::vector<char> VulkanGraphicsPipeline::ReadFile(const std::string& filename)
+{
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+	if (!file.is_open())
+	{
+		throw std::runtime_error("Failed to open file: " + filename);
+	}
+	size_t fileSize = static_cast<size_t>(file.tellg());
+	std::vector<char> buffer(fileSize);
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
+	file.close();
+	return buffer;
+}
+
+void VulkanGraphicsPipeline::CreateGraphicsPipeline() {
+    auto vertShaderCode = ReadFile("shaders/vert.spv");
+    auto fragShaderCode = ReadFile("shaders/frag.spv");
+
+    VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
+    VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(swapChain.GetSwapChainExtent().width);
+    viewport.height = static_cast<float>(swapChain.GetSwapChainExtent().height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = swapChain.GetSwapChainExtent();
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.pViewports = &viewport;
+    viewportState.scissorCount = 1;
+    viewportState.pScissors = &scissor;
+
+    std::cout << "Graphics pipeline creation completed!" << std::endl;
+
+    vkDestroyShaderModule(device.GetLogicalDevice(), vertShaderModule, nullptr);
+    vkDestroyShaderModule(device.GetLogicalDevice(), fragShaderModule, nullptr);
+}
+
+
+VkShaderModule VulkanGraphicsPipeline::CreateShaderModule(const std::vector<char>& code) {
+	VkShaderModuleCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.codeSize = code.size();
+	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+	VkShaderModule shaderModule;
+	if (vkCreateShaderModule(device.GetLogicalDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create shader module");
+	}
+	return shaderModule;
+}
