@@ -19,8 +19,11 @@ public:
 
 private:
 	void CreateGraphicsPipeline();
+	void CompileShader(const std::string& glslPath, const std::string& spvPath);
 	VkShaderModule CreateShaderModule(const std::vector<char>& code);
 	std::vector<char> ReadFile(const std::string& filename);
+
+	const std::string shaderDirectory = "../assets/shaders/";
 
 	VulkanDevice& device;
 	VulkanSwapChain& swapChain;

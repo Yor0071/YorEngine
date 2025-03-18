@@ -1,9 +1,11 @@
 #include "core/Window.h"
 #include "rendering/VulkanRenderer.h"
 #include <iostream>
+#include <filesystem>
 
 int main()
 {
+	std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
 	try 
 	{
 		Window window(800, 600, "YorEngine");

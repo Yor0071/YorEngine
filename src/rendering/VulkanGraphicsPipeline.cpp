@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, VulkanSwapChain& swapChain, VulkanRenderPass& renderPass)
 	: device(device), swapChain(swapChain), renderPass(renderPass)
@@ -24,24 +25,40 @@ VulkanGraphicsPipeline::~VulkanGraphicsPipeline()
 	}
 }
 
-std::vector<char> VulkanGraphicsPipeline::ReadFile(const std::string& filename)
-{
-	std::ifstream file(filename, std::ios::ate | std::ios::binary);
-	if (!file.is_open())
-	{
-		throw std::runtime_error("Failed to open file: " + filename);
-	}
-	size_t fileSize = static_cast<size_t>(file.tellg());
-	std::vector<char> buffer(fileSize);
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-	file.close();
-	return buffer;
+std::vector<char> VulkanGraphicsPipeline::ReadFile(const std::string& filename) {
+#ifdef DEBUG
+    std::cout << "[DEBUG] Forcing shader recompile: " << filename << std::endl;
+    std::string glslFilename = filename.substr(0, filename.size() - 4) + ".glsl";
+    CompileShader(glslFilename, filename);
+#else
+    if (filename.ends_with(".spv")) {
+        std::string glslFilename = filename.substr(0, filename.size() - 4) + ".glsl";
+
+        if (!std::filesystem::exists(filename) ||
+            std::filesystem::last_write_time(glslFilename) > std::filesystem::last_write_time(filename))
+        {
+            CompileShader(glslFilename, filename);
+        }
+    }
+#endif
+
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file: " + filename);
+    }
+
+    size_t fileSize = (size_t)file.tellg();
+    std::vector<char> buffer(fileSize);
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+    file.close();
+
+    return buffer;
 }
 
 void VulkanGraphicsPipeline::CreateGraphicsPipeline() {
-    auto vertShaderCode = ReadFile("shaders/vert.spv");
-    auto fragShaderCode = ReadFile("shaders/frag.spv");
+    auto vertShaderCode = ReadFile(shaderDirectory + "vert.spv");
+    auto fragShaderCode = ReadFile(shaderDirectory + "frag.spv");
 
     VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
@@ -109,4 +126,26 @@ VkShaderModule VulkanGraphicsPipeline::CreateShaderModule(const std::vector<char
 		throw std::runtime_error("Failed to create shader module");
 	}
 	return shaderModule;
+}
+
+void VulkanGraphicsPipeline::CompileShader(const std::string& glslPath, const std::string& spvPath) {
+    std::string stage;
+
+    if (glslPath.ends_with("vert.glsl")) {
+        stage = "vert";
+    }
+    else if (glslPath.ends_with("frag.glsl")) {
+        stage = "frag";
+    }
+    else {
+        throw std::runtime_error("Unknown shader stage: " + glslPath);
+    }
+
+    std::string command = "glslangValidator -V -S " + stage + " " + glslPath + " -o " + spvPath;
+    std::cout << "Compiling shader: " << glslPath << std::endl;
+
+    int result = std::system(command.c_str());
+    if (result != 0) {
+        throw std::runtime_error("Shader compilation failed: " + glslPath);
+    }
 }
