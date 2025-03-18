@@ -5,7 +5,6 @@
 
 int main()
 {
-	std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
 	try 
 	{
 		Window window(800, 600, "YorEngine");
@@ -16,7 +15,10 @@ int main()
 		while (!window.ShouldClose())
 		{
 			window.PollEvents();
+			renderer.DrawFrame();
 		}
+
+		renderer.Cleanup();
 
 		return 0;
 	}

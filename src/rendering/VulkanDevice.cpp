@@ -8,6 +8,7 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
 {
 	PickPhysicalDevice();
 	CreateLogicalDevice(physicalDevice, surface);
+	CreateCommandPool();
 	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
 
 	swapChain = std::make_unique<VulkanSwapChain>(physicalDevice, logicalDevice, surface, indices);
@@ -68,6 +69,10 @@ void VulkanDevice::CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfac
 {
 	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
 
+	if (indices.graphicsFamily == -1 || indices.presentFamily == -1) {
+		throw std::runtime_error("Failed to find required queue families!");
+	}
+
 	float queuePriority = 1.0f;
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::vector<uint32_t> uniqueQueueFamilies;
@@ -116,6 +121,21 @@ void VulkanDevice::CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfac
 	vkGetDeviceQueue(logicalDevice, indices.presentFamily, 0, &presentQueue);
 
 	std::cout << "Logical device created" << std::endl;
+}
+
+void VulkanDevice::CreateCommandPool()
+{
+	QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(physicalDevice);
+
+	VkCommandPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily;
+	
+	if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create command pool");
+	}
 }
 
 uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)

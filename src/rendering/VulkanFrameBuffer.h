@@ -16,6 +16,7 @@ public:
 	VulkanFramebuffer(VulkanDevice& device, VulkanSwapChain& swapChain, VulkanRenderPass& renderPass, VulkanDepthBuffer& depthBuffer);
 	~VulkanFramebuffer();
 
+	const std::vector<VkFramebuffer>& GetFramebuffers() const { return framebuffers; }
 	VkFramebuffer GetFramebuffer(int index) const { return framebuffers[index]; }
 
 private:
