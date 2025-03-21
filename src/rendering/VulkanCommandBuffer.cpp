@@ -1,19 +1,21 @@
 #include "VulkanCommandBuffer.h"
 
 VulkanCommandBuffer::VulkanCommandBuffer(VulkanDevice& device,
-    VulkanSwapChain& swapChain,
-    VulkanRenderPass& renderPass,
-    VulkanFramebuffer& framebuffer,
-    VulkanGraphicsPipeline& graphicsPipeline,
-    VertexBuffer& vertexBuffer,
-	IndexBuffer& indexBuffer)
-    : device(device),
-    swapChain(swapChain),
-    renderPass(renderPass),
-    framebuffer(framebuffer),
-    graphicsPipeline(graphicsPipeline),
-    vertexBuffer(vertexBuffer),
-	indexBuffer(indexBuffer)
+                                         VulkanSwapChain& swapChain,
+                                         VulkanRenderPass& renderPass,
+                                         VulkanFramebuffer& framebuffer,
+                                         VulkanGraphicsPipeline& graphicsPipeline,
+                                         VertexBuffer& vertexBuffer,
+	                                     IndexBuffer& indexBuffer,
+                                         VkDescriptorSet descriptorSet)
+                                         : device(device),
+                                         swapChain(swapChain),
+                                         renderPass(renderPass),
+                                         framebuffer(framebuffer),
+                                         graphicsPipeline(graphicsPipeline),
+                                         vertexBuffer(vertexBuffer),
+	                                     indexBuffer(indexBuffer),
+	                                     descriptorSet(descriptorSet)
 {
     CreateCommandBuffers();
 }
@@ -74,6 +76,8 @@ void VulkanCommandBuffer::RecordCommandBuffer(uint32_t imageIndex) {
 	vkCmdBindVertexBuffers(commandBuffers[imageIndex], 0, 1, vertexBuffers, offsets);
 
 	vkCmdBindIndexBuffer(commandBuffers[imageIndex], indexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT16);
+
+	vkCmdBindDescriptorSets(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
 
 	vkCmdDrawIndexed(commandBuffers[imageIndex], indexBuffer.GetIndexCount(), 1, 0, 0, 0);
 

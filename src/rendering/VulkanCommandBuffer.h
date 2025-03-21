@@ -23,7 +23,8 @@ public:
 		VulkanFramebuffer& framebuffer,
 		VulkanGraphicsPipeline& graphicsPipeline,
 		VertexBuffer& vertexBuffer,
-		IndexBuffer& indexBuffer);
+		IndexBuffer& indexBuffer,
+		VkDescriptorSet descriptorSet);
 	~VulkanCommandBuffer();
 
 	void RecordCommandBuffer(uint32_t imageIndex);
@@ -39,6 +40,7 @@ private:
 	VulkanGraphicsPipeline& graphicsPipeline;
 	VertexBuffer& vertexBuffer;
 	IndexBuffer& indexBuffer;
+	VkDescriptorSet descriptorSet;
 
 	std::vector<VkCommandBuffer> commandBuffers;
 };

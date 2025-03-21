@@ -17,6 +17,7 @@ public:
 
 	VkPipeline GetPipeline() const { return graphicsPipeline; }
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout; }
+	VkDescriptorSetLayout GetDescriptorSetLayout() const { return descriptorSetLayout; }
 
 private:
 	void CreateGraphicsPipeline();
@@ -32,6 +33,7 @@ private:
 
 	VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 };
 
 #endif // !VULKAN_GRAPHICS_PIPELINE_H
