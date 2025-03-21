@@ -1,9 +1,19 @@
 #include "VulkanCommandBuffer.h"
 
-VulkanCommandBuffer::VulkanCommandBuffer(VulkanDevice& device, VulkanSwapChain& swapChain, VulkanRenderPass& renderPass, VulkanFramebuffer& framebuffer)
-	: device(device), swapChain(swapChain), renderPass(renderPass), framebuffer(framebuffer)
+VulkanCommandBuffer::VulkanCommandBuffer(VulkanDevice& device,
+    VulkanSwapChain& swapChain,
+    VulkanRenderPass& renderPass,
+    VulkanFramebuffer& framebuffer,
+    VulkanGraphicsPipeline& graphicsPipeline,
+    VertexBuffer& vertexBuffer)
+    : device(device),
+    swapChain(swapChain),
+    renderPass(renderPass),
+    framebuffer(framebuffer),
+    graphicsPipeline(graphicsPipeline),
+    vertexBuffer(vertexBuffer)
 {
-	CreateCommandBuffers();
+    CreateCommandBuffers();
 }
 
 VulkanCommandBuffer::~VulkanCommandBuffer() 
@@ -54,6 +64,15 @@ void VulkanCommandBuffer::RecordCommandBuffer(uint32_t imageIndex) {
     renderPassInfo.pClearValues = clearValues;
 
     vkCmdBeginRenderPass(commandBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipeline());
+
+	VkBuffer vertexBuffers[] = { vertexBuffer.GetBuffer() };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffers[imageIndex], 0, 1, vertexBuffers, offsets);
+
+	vkCmdDraw(commandBuffers[imageIndex], static_cast<uint32_t>(vertexBuffer.GetVertexCount()), 1, 0, 0);
+
     vkCmdEndRenderPass(commandBuffers[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {

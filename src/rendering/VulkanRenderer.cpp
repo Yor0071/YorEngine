@@ -1,6 +1,7 @@
 #include "VulkanRenderer.h"
 #include <iostream>
 #include <stdexcept>
+#include "Vertex.h"
 
 VulkanRenderer::VulkanRenderer() {}
 
@@ -8,6 +9,13 @@ VulkanRenderer::~VulkanRenderer()
 {
 	Cleanup();
 }
+
+// TEMPORARY
+const std::vector<Vertex> vertices = {
+	{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+};
 
 void VulkanRenderer::Init(GLFWwindow* window)
 {
@@ -18,7 +26,8 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
 	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
-	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer);
+	vertexBuffer = std::make_unique<VertexBuffer>(*device, vertices.data(), sizeof(vertices[0]) * vertices.size());
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, *vertexBuffer);
 
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -60,6 +69,7 @@ void VulkanRenderer::Cleanup()
 		}
 	}
 
+	vertexBuffer.reset();
 	commandBuffer.reset();
 	graphicsPipeline.reset();
 	framebuffer.reset();
@@ -195,7 +205,7 @@ void VulkanRenderer::ReCreateSwapChain(GLFWwindow* window)
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
 	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
-	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer);
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, *vertexBuffer);
 }
 
 void VulkanRenderer::ReloadShaders()
@@ -208,7 +218,7 @@ void VulkanRenderer::ReloadShaders()
 	commandBuffer.reset();
 
 	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
-	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer);
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, *vertexBuffer);
 
 	std::cout << "[INFO] Shaders reloaded" << std::endl;
 }

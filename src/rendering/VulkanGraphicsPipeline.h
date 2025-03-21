@@ -7,6 +7,7 @@
 #include "VulkanDevice.h"
 #include "VulkanSwapChain.h"
 #include "VulkanRenderPass.h"
+#include "Vertex.h"
 
 class VulkanGraphicsPipeline
 {

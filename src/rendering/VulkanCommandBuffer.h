@@ -10,11 +10,18 @@
 #include "VulkanSwapChain.h"
 #include "VulkanRenderPass.h"
 #include "VulkanFramebuffer.h"
+#include "VertexBuffer.h"
+#include "VulkanGraphicsPipeline.h"
 
 class VulkanCommandBuffer
 {
 public:
-	VulkanCommandBuffer(VulkanDevice& device, VulkanSwapChain& swapChain, VulkanRenderPass& renderPass, VulkanFramebuffer& framebuffer);
+	VulkanCommandBuffer(VulkanDevice& device,
+		VulkanSwapChain& swapChain,
+		VulkanRenderPass& renderPass,
+		VulkanFramebuffer& framebuffer,
+		VulkanGraphicsPipeline& graphicsPipeline,
+		VertexBuffer& vertexBuffer);
 	~VulkanCommandBuffer();
 
 	void RecordCommandBuffer(uint32_t imageIndex);
@@ -27,6 +34,8 @@ private:
 	VulkanSwapChain& swapChain;
 	VulkanRenderPass& renderPass;
 	VulkanFramebuffer& framebuffer;
+	VulkanGraphicsPipeline& graphicsPipeline;
+	VertexBuffer& vertexBuffer;
 
 	std::vector<VkCommandBuffer> commandBuffers;
 };

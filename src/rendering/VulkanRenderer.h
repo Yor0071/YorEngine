@@ -9,6 +9,7 @@
 #include "VulkanFrameBuffer.h"
 #include "VulkanGraphicsPipeline.h"
 #include "VulkanCommandBuffer.h"
+#include "VertexBuffer.h"
 
 class VulkanRenderer
 {
@@ -39,6 +40,7 @@ private:
 	std::unique_ptr<VulkanFramebuffer> framebuffer;
 	std::unique_ptr<VulkanGraphicsPipeline> graphicsPipeline;
 	std::unique_ptr<VulkanCommandBuffer> commandBuffer;
+	std::unique_ptr<VertexBuffer> vertexBuffer;
 };
 
 #endif // !VULKAN_RENDERER_H
