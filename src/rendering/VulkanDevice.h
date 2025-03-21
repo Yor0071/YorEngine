@@ -16,6 +16,8 @@ public:
 	VulkanDevice(VkInstance instance, VkSurfaceKHR surface);
 	~VulkanDevice();
 
+	void RecreateSwapChain();
+
 	VkPhysicalDevice GetPhysicalDevice() const { return physicalDevice; }
 	VkDevice GetLogicalDevice() const { return logicalDevice; }
 	VulkanSwapChain* GetSwapChain() const { return swapChain.get(); }

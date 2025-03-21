@@ -19,8 +19,24 @@ VulkanDevice::~VulkanDevice()
 {
 	depthBuffer.reset();
 	swapChain.reset();
+
+	if (commandPool != VK_NULL_HANDLE)
+	{
+		vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+		std::cout << "Command pool destroyed" << std::endl;
+	}
+
 	vkDestroyDevice(logicalDevice, nullptr);
 	std::cout << "Logical device destroyed" << std::endl;
+}
+
+void VulkanDevice::RecreateSwapChain()
+{
+	swapChain.reset();
+	depthBuffer.reset();
+
+	swapChain = std::make_unique<VulkanSwapChain>(physicalDevice, logicalDevice, surface, FindQueueFamilies(physicalDevice));
+	depthBuffer = std::make_unique<VulkanDepthBuffer>(*this, swapChain->GetSwapChainExtent());
 }
 
 void VulkanDevice::PickPhysicalDevice()

@@ -41,38 +41,42 @@ void VulkanRenderer::Init(GLFWwindow* window)
 
 void VulkanRenderer::Cleanup()
 {
-	vkDestroySemaphore(device->GetLogicalDevice(), imageAvailableSemaphore, nullptr);
-	vkDestroySemaphore(device->GetLogicalDevice(), renderFinishedSemaphore, nullptr);
-	vkDestroyFence(device->GetLogicalDevice(), inFlightFence, nullptr);
+	if (device) {
+		vkDeviceWaitIdle(device->GetLogicalDevice());
 
-	if (graphicsPipeline)
-	{
-		graphicsPipeline.reset();
+		if (imageAvailableSemaphore) {
+			vkDestroySemaphore(device->GetLogicalDevice(), imageAvailableSemaphore, nullptr);
+			imageAvailableSemaphore = VK_NULL_HANDLE;
+		}
+
+		if (renderFinishedSemaphore) {
+			vkDestroySemaphore(device->GetLogicalDevice(), renderFinishedSemaphore, nullptr);
+			renderFinishedSemaphore = VK_NULL_HANDLE;
+		}
+
+		if (inFlightFence) {
+			vkDestroyFence(device->GetLogicalDevice(), inFlightFence, nullptr);
+			inFlightFence = VK_NULL_HANDLE;
+		}
 	}
 
-	if (framebuffer)
-	{
-		framebuffer.reset();
-	}
-
-	if (renderPass)
-	{
-		renderPass.reset();
-	}
-
-	if (device)
-	{
-		device.reset();
-	}
+	commandBuffer.reset();
+	graphicsPipeline.reset();
+	framebuffer.reset();
+	renderPass.reset();
+	device.reset();
 
 	if (surface != VK_NULL_HANDLE)
 	{
 		vkDestroySurfaceKHR(vulkanInstance, surface, nullptr);
-		std::cout << "Window surface destroyed" << std::endl;
 		surface = VK_NULL_HANDLE;
 	}
 
-	vkDestroyInstance(vulkanInstance, nullptr);
+	if (vulkanInstance != VK_NULL_HANDLE)
+	{
+		vkDestroyInstance(vulkanInstance, nullptr);
+		vulkanInstance = VK_NULL_HANDLE;
+	}
 }
 
 void VulkanRenderer::CreateInstance()
@@ -168,6 +172,45 @@ void VulkanRenderer::DrawFrame()
 	{
 		throw std::runtime_error("Failed to present swap chain image!");
 	}
+}
+
+void VulkanRenderer::ReCreateSwapChain(GLFWwindow* window)
+{
+	int width = 0, height = 0;
+	glfwGetFramebufferSize(window, &width, &height);
+	while (width == 0 || height == 0)
+	{
+		glfwGetFramebufferSize(window, &width, &height);
+		glfwWaitEvents();
+	}
+
+	vkDeviceWaitIdle(device->GetLogicalDevice());
+
+	framebuffer.reset();
+	graphicsPipeline.reset();
+	renderPass.reset();
+	commandBuffer.reset();
+
+	device->RecreateSwapChain();
+	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
+	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
+	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer);
+}
+
+void VulkanRenderer::ReloadShaders()
+{
+	vkDeviceWaitIdle(device->GetLogicalDevice());
+
+	std::cout << "[INFO] Reloading shaders..." << std::endl;
+
+	graphicsPipeline.reset();
+	commandBuffer.reset();
+
+	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer);
+
+	std::cout << "[INFO] Shaders reloaded" << std::endl;
 }
 
 std::vector<const char*> VulkanRenderer::GetRequiredExtensions()

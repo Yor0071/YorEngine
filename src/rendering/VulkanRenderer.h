@@ -19,6 +19,8 @@ public:
 	void Init(GLFWwindow* window);
 	void Cleanup();
 	void DrawFrame();
+	void ReCreateSwapChain(GLFWwindow* window);
+	void ReloadShaders();
 
 private:
 	void CreateInstance();

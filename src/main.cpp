@@ -15,6 +15,18 @@ int main()
 		while (!window.ShouldClose())
 		{
 			window.PollEvents();
+
+			if (window.WasResized())
+			{
+				renderer.ReCreateSwapChain(window.GetWindow());
+				window.ResetResizeFlag();
+			}
+
+			if (glfwGetKey(window.GetWindow(), GLFW_KEY_L) == GLFW_PRESS)
+			{
+				renderer.ReloadShaders();
+			}
+
 			renderer.DrawFrame();
 		}
 

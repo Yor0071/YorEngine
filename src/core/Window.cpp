@@ -30,6 +30,23 @@ void Window::InitWindow()
 		glfwTerminate();
 		exit(EXIT_FAILURE);
 	}
+
+	glfwSetWindowUserPointer(window, this);
+	glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width, int height)
+		{
+			auto app = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+			app->framebufferResized = true;
+		});
+}
+
+bool Window::WasResized()
+{
+	return framebufferResized;
+}
+
+void Window::ResetResizeFlag()
+{
+	framebufferResized = false;
 }
 
 void Window::PollEvents()
