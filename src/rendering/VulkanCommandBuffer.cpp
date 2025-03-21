@@ -5,13 +5,15 @@ VulkanCommandBuffer::VulkanCommandBuffer(VulkanDevice& device,
     VulkanRenderPass& renderPass,
     VulkanFramebuffer& framebuffer,
     VulkanGraphicsPipeline& graphicsPipeline,
-    VertexBuffer& vertexBuffer)
+    VertexBuffer& vertexBuffer,
+	IndexBuffer& indexBuffer)
     : device(device),
     swapChain(swapChain),
     renderPass(renderPass),
     framebuffer(framebuffer),
     graphicsPipeline(graphicsPipeline),
-    vertexBuffer(vertexBuffer)
+    vertexBuffer(vertexBuffer),
+	indexBuffer(indexBuffer)
 {
     CreateCommandBuffers();
 }
@@ -71,7 +73,9 @@ void VulkanCommandBuffer::RecordCommandBuffer(uint32_t imageIndex) {
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffers[imageIndex], 0, 1, vertexBuffers, offsets);
 
-	vkCmdDraw(commandBuffers[imageIndex], static_cast<uint32_t>(vertexBuffer.GetVertexCount()), 1, 0, 0);
+	vkCmdBindIndexBuffer(commandBuffers[imageIndex], indexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT16);
+
+	vkCmdDrawIndexed(commandBuffers[imageIndex], indexBuffer.GetIndexCount(), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffers[imageIndex]);
 

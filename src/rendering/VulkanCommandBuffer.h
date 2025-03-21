@@ -11,6 +11,7 @@
 #include "VulkanRenderPass.h"
 #include "VulkanFramebuffer.h"
 #include "VertexBuffer.h"
+#include "IndexBuffer.h"
 #include "VulkanGraphicsPipeline.h"
 
 class VulkanCommandBuffer
@@ -21,7 +22,8 @@ public:
 		VulkanRenderPass& renderPass,
 		VulkanFramebuffer& framebuffer,
 		VulkanGraphicsPipeline& graphicsPipeline,
-		VertexBuffer& vertexBuffer);
+		VertexBuffer& vertexBuffer,
+		IndexBuffer& indexBuffer);
 	~VulkanCommandBuffer();
 
 	void RecordCommandBuffer(uint32_t imageIndex);
@@ -36,6 +38,7 @@ private:
 	VulkanFramebuffer& framebuffer;
 	VulkanGraphicsPipeline& graphicsPipeline;
 	VertexBuffer& vertexBuffer;
+	IndexBuffer& indexBuffer;
 
 	std::vector<VkCommandBuffer> commandBuffers;
 };
