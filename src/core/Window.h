@@ -13,6 +13,9 @@ public:
 
 	void PollEvents();
 	bool ShouldClose() const;
+	bool framebufferResized = false;
+	bool WasResized();
+	void ResetResizeFlag();
 
 	GLFWwindow* GetWindow() const { return window; }
 

@@ -1,6 +1,7 @@
 #include "core/Window.h"
 #include "rendering/VulkanRenderer.h"
 #include <iostream>
+#include <filesystem>
 
 int main()
 {
@@ -14,7 +15,22 @@ int main()
 		while (!window.ShouldClose())
 		{
 			window.PollEvents();
+
+			if (window.WasResized())
+			{
+				renderer.ReCreateSwapChain(window.GetWindow());
+				window.ResetResizeFlag();
+			}
+
+			if (glfwGetKey(window.GetWindow(), GLFW_KEY_L) == GLFW_PRESS)
+			{
+				renderer.ReloadShaders();
+			}
+
+			renderer.DrawFrame();
 		}
+
+		renderer.Cleanup();
 
 		return 0;
 	}

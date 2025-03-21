@@ -1,5 +1,5 @@
 #include "Window.h"
-#include <iostream> // Dont know why
+#include <iostream>
 
 Window::Window(int width, int height, const std::string& title)
 	: width(width), height(height), title(title)
@@ -30,6 +30,23 @@ void Window::InitWindow()
 		glfwTerminate();
 		exit(EXIT_FAILURE);
 	}
+
+	glfwSetWindowUserPointer(window, this);
+	glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width, int height)
+		{
+			auto app = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+			app->framebufferResized = true;
+		});
+}
+
+bool Window::WasResized()
+{
+	return framebufferResized;
+}
+
+void Window::ResetResizeFlag()
+{
+	framebufferResized = false;
 }
 
 void Window::PollEvents()

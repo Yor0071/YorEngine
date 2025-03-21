@@ -16,14 +16,23 @@ public:
 	VulkanDevice(VkInstance instance, VkSurfaceKHR surface);
 	~VulkanDevice();
 
+	void RecreateSwapChain();
+
 	VkPhysicalDevice GetPhysicalDevice() const { return physicalDevice; }
 	VkDevice GetLogicalDevice() const { return logicalDevice; }
+	VulkanSwapChain* GetSwapChain() const { return swapChain.get(); }
+	VulkanDepthBuffer* GetDepthBuffer() const { return depthBuffer.get(); }
+	VkCommandPool GetCommandPool() const { return commandPool; }
+	VkQueue GetGraphicsQueue() const { return graphicsQueue; }
+	VkQueue GetPresentQueue() const { return presentQueue; }
+
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 private:
 	void PickPhysicalDevice();
 	bool IsDeviceSuitable(VkPhysicalDevice device);
 	void CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
+	void CreateCommandPool();
 
 	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 
@@ -33,6 +42,7 @@ private:
 	VkDevice logicalDevice = VK_NULL_HANDLE;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
+	VkCommandPool commandPool;
 
 	std::unique_ptr<VulkanSwapChain> swapChain;
 	std::unique_ptr<VulkanDepthBuffer> depthBuffer;

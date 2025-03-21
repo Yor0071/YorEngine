@@ -25,6 +25,7 @@ public:
 	const std::vector<VkImageView>& GetSwapChainImageViews() { return swapChainImageViews; }
 	VkFormat GetSwapChainImageFormat() const { return swapChainImageFormat; }
 	VkExtent2D GetSwapChainExtent() const { return swapChainExtent; }
+	uint32_t GetSwapChainImageCount() const { return static_cast<uint32_t>(swapChainImages.size()); }
 
 private:
 	void CreateSwapChain();

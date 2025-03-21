@@ -3,12 +3,12 @@
 
 struct QueueFamilyIndices
 {
-    int graphicsFamily = -1;
-    int presentFamily = -1;
+    uint32_t graphicsFamily = UINT32_MAX;
+    uint32_t presentFamily = UINT32_MAX;
 
     bool IsComplete() const
     {
-        return graphicsFamily != -1 && presentFamily != -1;
+        return graphicsFamily != UINT32_MAX && presentFamily != UINT32_MAX;
     }
 };
 
