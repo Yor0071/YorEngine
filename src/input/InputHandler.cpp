@@ -35,5 +35,34 @@ void InputHandler::Update(float deltaTime)
     lastMouseX = xpos;
     lastMouseY = ypos;
 
-    camera.ProcessMouse(xoffset, yoffset);
+	if (!cursorEnabled) camera.ProcessMouse(xoffset, yoffset);
+
+	HandleToggleCursor();
+}
+
+void InputHandler::EnableCursor()
+{
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	cursorEnabled = true;
+    firstMouse = true;
+}
+
+void InputHandler::DisableCursor()
+{
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	cursorEnabled = false;
+	firstMouse = true;
+}
+
+void InputHandler::HandleToggleCursor()
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && !cursorEnabled)
+    {
+        EnableCursor();
+    }
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && cursorEnabled)
+    {
+        DisableCursor();
+    }
 }
