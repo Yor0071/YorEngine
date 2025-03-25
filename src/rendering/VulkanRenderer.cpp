@@ -117,6 +117,11 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	{
 		throw std::runtime_error("Failed to create fence!");
 	}
+
+	float aspect = (float)device->GetSwapChain()->GetSwapChainExtent().width / (float)device->GetSwapChain()->GetSwapChainExtent().height;
+	camera = std::make_unique<Camera> (45.0f, aspect, 0.1f, 100.0f);
+	inputHandler = std::make_unique<InputHandler>(window, *camera);
+	inputHandler->SetOnReloadShaders([this]() { this->ReloadShaders(); });
 }
 
 void VulkanRenderer::Cleanup()
@@ -287,6 +292,12 @@ void VulkanRenderer::ReCreateSwapChain(GLFWwindow* window)
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
 	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
 	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, *vertexBuffer, *indexBuffer, descriptorSet);
+
+	float newAspect = (float)device->GetSwapChain()->GetSwapChainExtent().width / (float)device->GetSwapChain()->GetSwapChainExtent().height;
+	if (camera)
+	{
+		camera->SetAspectRatio(newAspect);
+	}
 }
 
 void VulkanRenderer::ReloadShaders()
@@ -304,19 +315,22 @@ void VulkanRenderer::ReloadShaders()
 	std::cout << "[INFO] Shaders reloaded" << std::endl;
 }
 
+void VulkanRenderer::Update(float deltaTime)
+{
+	if (inputHandler)
+	{
+		inputHandler->Update(deltaTime);
+	}
+}
+
 void VulkanRenderer::UpdateUniformBuffer() {
 	UniformBufferObject ubo{};
 
 	ubo.model = glm::rotate(glm::mat4(1.0f), static_cast<float>(glfwGetTime()), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),  // camera position
-		glm::vec3(0.0f, 0.0f, 0.0f),  // target
-		glm::vec3(0.0f, 1.0f, 0.0f)); // up
+	ubo.view = camera->GetViewMatrix();
 
-	float aspectRatio = static_cast<float>(device->GetSwapChain()->GetSwapChainExtent().width) /
-		device->GetSwapChain()->GetSwapChainExtent().height;
-
-	ubo.proj = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+	ubo.proj = camera->GetProjectionMatrix();
 
 	ubo.proj[1][1] *= -1;
 

@@ -1,5 +1,6 @@
 #include "core/Window.h"
 #include "rendering/VulkanRenderer.h"
+#include "input/InputHandler.h"
 #include <iostream>
 #include <filesystem>
 
@@ -12,19 +13,22 @@ int main()
 		VulkanRenderer renderer;
 		renderer.Init(window.GetWindow());
 
+		float lastTime = glfwGetTime();
+
 		while (!window.ShouldClose())
 		{
 			window.PollEvents();
+
+			float currentTime = glfwGetTime();
+			float deltaTime = currentTime - lastTime;
+			lastTime = currentTime;
+
+			renderer.Update(deltaTime);
 
 			if (window.WasResized())
 			{
 				renderer.ReCreateSwapChain(window.GetWindow());
 				window.ResetResizeFlag();
-			}
-
-			if (glfwGetKey(window.GetWindow(), GLFW_KEY_L) == GLFW_PRESS)
-			{
-				renderer.ReloadShaders();
 			}
 
 			renderer.DrawFrame();

@@ -17,6 +17,10 @@
 #include "UniformBuffer.h"
 #include "UniformBufferObject.h"
 
+#include "../core/Camera.h"
+
+#include "../input/InputHandler.h"
+
 class VulkanRenderer
 {
 public:
@@ -29,6 +33,8 @@ public:
 	void ReCreateSwapChain(GLFWwindow* window);
 	void ReloadShaders();
 	void UpdateUniformBuffer();
+	void Update(float deltaTime);
+	Camera* GetCamera() { return camera.get(); }
 
 private:
 	void CreateInstance();
@@ -53,6 +59,8 @@ private:
 	std::unique_ptr<VertexBuffer> vertexBuffer;
 	std::unique_ptr<IndexBuffer> indexBuffer;
 	std::unique_ptr<UniformBuffer<UniformBufferObject>> mvpBuffer;
+	std::unique_ptr<Camera> camera;
+	std::unique_ptr<InputHandler> inputHandler;
 };
 
 #endif // !VULKAN_RENDERER_H
