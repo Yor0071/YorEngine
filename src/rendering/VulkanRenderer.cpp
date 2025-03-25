@@ -291,6 +291,12 @@ void VulkanRenderer::ReCreateSwapChain(GLFWwindow* window)
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
 	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
 	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, *vertexBuffer, *indexBuffer, descriptorSet);
+
+	float newAspect = (float)device->GetSwapChain()->GetSwapChainExtent().width / (float)device->GetSwapChain()->GetSwapChainExtent().height;
+	if (camera)
+	{
+		camera->SetAspectRatio(newAspect);
+	}
 }
 
 void VulkanRenderer::ReloadShaders()
