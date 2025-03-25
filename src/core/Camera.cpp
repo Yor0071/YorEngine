@@ -17,9 +17,12 @@ void Camera::ProcessKeyboard(float forward, float right, float up)
 {
 	float velocity = movementSpeed;
 
-	position += front * forward * velocity;
-	position += this->right * right * velocity;
-	position += this->up * up * velocity;
+	glm::vec3 flatFront = glm::normalize(glm::vec3(front.x, 0.0f, front.z));
+	glm::vec3 flatRight = glm::normalize(glm::vec3(this->right.x, 0.0f, this->right.z));
+
+	position += flatFront * forward * velocity;
+	position += flatRight * right * velocity;
+	position += worldUp * up * velocity;
 }
 
 void Camera::ProcessMouse(float xoffset, float yoffset, bool constrainPitch)
