@@ -121,6 +121,7 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	float aspect = (float)device->GetSwapChain()->GetSwapChainExtent().width / (float)device->GetSwapChain()->GetSwapChainExtent().height;
 	camera = std::make_unique<Camera> (45.0f, aspect, 0.1f, 100.0f);
 	inputHandler = std::make_unique<InputHandler>(window, *camera);
+	inputHandler->SetOnReloadShaders([this]() { this->ReloadShaders(); });
 }
 
 void VulkanRenderer::Cleanup()

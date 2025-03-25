@@ -41,6 +41,21 @@ void InputHandler::Update(float deltaTime)
 	if (!cursorEnabled) camera.ProcessMouse(xoffset, yoffset);
 
 	HandleToggleCursor();
+
+    if (WasKeyJustPressed(GLFW_KEY_L) && onReloadShaders)
+    {
+        onReloadShaders();
+    }
+}
+
+bool InputHandler::WasKeyJustPressed(int key)
+{
+    int state = glfwGetKey(window, key);
+
+    bool wasDown = keyWasDown[key];
+    keyWasDown[key] = (state == GLFW_PRESS);
+
+    return state == GLFW_PRESS && !wasDown;
 }
 
 void InputHandler::EnableCursor()

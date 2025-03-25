@@ -31,11 +31,6 @@ int main()
 				window.ResetResizeFlag();
 			}
 
-			if (glfwGetKey(window.GetWindow(), GLFW_KEY_L) == GLFW_PRESS)
-			{
-				renderer.ReloadShaders();
-			}
-
 			renderer.DrawFrame();
 		}
 
