@@ -16,6 +16,7 @@
 #include "IndexBuffer.h"
 #include "UniformBuffer.h"
 #include "UniformBufferObject.h"
+#include "ModelLoader.h"
 
 #include "../core/Camera.h"
 
@@ -40,6 +41,9 @@ private:
 	void CreateInstance();
 	void CreateSurface(GLFWwindow* window);
 	std::vector<const char*> GetRequiredExtensions();
+
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
 
 	VkInstance vulkanInstance;
 	VkSurfaceKHR surface;

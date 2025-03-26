@@ -9,7 +9,7 @@ VulkanRenderer::~VulkanRenderer()
 {
 	Cleanup();
 }
-
+/*
 // ==================================TEMPORARY======================================================
 const std::vector<Vertex> vertices = {
 	// Front face
@@ -41,7 +41,7 @@ const std::vector<uint16_t> indices = {
 };
 
 // =================================================================================================
-
+*/
 void VulkanRenderer::Init(GLFWwindow* window)
 {
 	CreateInstance();
@@ -51,6 +51,12 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
 	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
+
+	if (!ModelLoader::LoadModel("../assets/models/Cactus.fbx", vertices, indices))
+	{
+		throw std::runtime_error("Failed to load model!");
+	}
+
 	vertexBuffer = std::make_unique<VertexBuffer>(*device, vertices.data(), sizeof(vertices[0]) * vertices.size());
 	indexBuffer = std::make_unique<IndexBuffer>(*device, indices.data(), sizeof(indices[0]) * indices.size(), static_cast<uint32_t>(indices.size()));
 	mvpBuffer = std::make_unique<UniformBuffer<UniformBufferObject>>(device->GetLogicalDevice(), device->GetPhysicalDevice());
@@ -119,7 +125,7 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	}
 
 	float aspect = (float)device->GetSwapChain()->GetSwapChainExtent().width / (float)device->GetSwapChain()->GetSwapChainExtent().height;
-	camera = std::make_unique<Camera> (45.0f, aspect, 0.1f, 100.0f);
+	camera = std::make_unique<Camera> (45.0f, aspect, 0.1f, 1000.0f);
 	inputHandler = std::make_unique<InputHandler>(window, *camera);
 	inputHandler->SetOnReloadShaders([this]() { this->ReloadShaders(); });
 }
@@ -326,7 +332,8 @@ void VulkanRenderer::Update(float deltaTime)
 void VulkanRenderer::UpdateUniformBuffer() {
 	UniformBufferObject ubo{};
 
-	ubo.model = glm::rotate(glm::mat4(1.0f), static_cast<float>(glfwGetTime()), glm::vec3(0.0f, 1.0f, 0.0f));
+	ubo.model = glm::mat4(1.0f);
+	ubo.model = glm::scale(ubo.model, glm::vec3(0.05f, -0.05f, 0.05f));
 
 	ubo.view = camera->GetViewMatrix();
 

@@ -75,7 +75,7 @@ void VulkanCommandBuffer::RecordCommandBuffer(uint32_t imageIndex) {
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffers[imageIndex], 0, 1, vertexBuffers, offsets);
 
-	vkCmdBindIndexBuffer(commandBuffers[imageIndex], indexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindIndexBuffer(commandBuffers[imageIndex], indexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	vkCmdBindDescriptorSets(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
 
