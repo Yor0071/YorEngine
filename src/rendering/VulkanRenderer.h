@@ -12,11 +12,10 @@
 #include "VulkanFrameBuffer.h"
 #include "VulkanGraphicsPipeline.h"
 #include "VulkanCommandBuffer.h"
-#include "VertexBuffer.h"
-#include "IndexBuffer.h"
 #include "UniformBuffer.h"
 #include "UniformBufferObject.h"
 #include "ModelLoader.h"
+#include "Scene.h"
 
 #include "../core/Camera.h"
 
@@ -36,6 +35,8 @@ public:
 	void UpdateUniformBuffer();
 	void Update(float deltaTime);
 	Camera* GetCamera() { return camera.get(); }
+	Scene& GetScene() { return *scene; }
+	VulkanDevice* GetDevice() { return device.get(); }
 
 private:
 	void CreateInstance();
@@ -60,11 +61,10 @@ private:
 	std::unique_ptr<VulkanFramebuffer> framebuffer;
 	std::unique_ptr<VulkanGraphicsPipeline> graphicsPipeline;
 	std::unique_ptr<VulkanCommandBuffer> commandBuffer;
-	std::unique_ptr<VertexBuffer> vertexBuffer;
-	std::unique_ptr<IndexBuffer> indexBuffer;
 	std::unique_ptr<UniformBuffer<UniformBufferObject>> mvpBuffer;
 	std::unique_ptr<Camera> camera;
 	std::unique_ptr<InputHandler> inputHandler;
+	std::unique_ptr<Scene> scene;
 };
 
 #endif // !VULKAN_RENDERER_H

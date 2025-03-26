@@ -17,6 +17,8 @@ public:
 	//VkDeviceMemory GetBufferMemory() const { return bufferMemory; }
 	size_t GetVertexCount() const { return vertexCount; }
 
+	void Bind(VkCommandBuffer commandBuffer) const;
+
 private:
 	size_t vertexCount;
 

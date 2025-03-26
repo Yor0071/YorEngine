@@ -48,17 +48,13 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	CreateSurface(window);
 
 	device = std::make_unique<VulkanDevice>(vulkanInstance, surface);
+	
+	scene = std::make_unique<Scene>();
+	scene->Load(*device);
+
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
 	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
-
-	if (!ModelLoader::LoadModel("../assets/models/Cactus.fbx", vertices, indices))
-	{
-		throw std::runtime_error("Failed to load model!");
-	}
-
-	vertexBuffer = std::make_unique<VertexBuffer>(*device, vertices.data(), sizeof(vertices[0]) * vertices.size());
-	indexBuffer = std::make_unique<IndexBuffer>(*device, indices.data(), sizeof(indices[0]) * indices.size(), static_cast<uint32_t>(indices.size()));
 	mvpBuffer = std::make_unique<UniformBuffer<UniformBufferObject>>(device->GetLogicalDevice(), device->GetPhysicalDevice());
 
 	VkDescriptorPoolSize poolSize{};
@@ -104,7 +100,7 @@ void VulkanRenderer::Init(GLFWwindow* window)
 
 	vkUpdateDescriptorSets(device->GetLogicalDevice(), 1, &descriptorWrite, 0, nullptr);
 
-	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, *vertexBuffer, *indexBuffer, descriptorSet);
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, descriptorSet);
 
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -153,8 +149,6 @@ void VulkanRenderer::Cleanup()
 
 	commandBuffer.reset();
 	mvpBuffer.reset();
-	indexBuffer.reset();
-	vertexBuffer.reset();
 	graphicsPipeline.reset();
 	framebuffer.reset();
 	renderPass.reset();
@@ -164,6 +158,8 @@ void VulkanRenderer::Cleanup()
 		vkDestroyDescriptorPool(device->GetLogicalDevice(), descriptorPool, nullptr);
 		descriptorPool = VK_NULL_HANDLE;
 	}
+
+	scene.reset();
 
 	device.reset();
 
@@ -237,7 +233,17 @@ void VulkanRenderer::DrawFrame()
 	}
 
 	UpdateUniformBuffer();
-	commandBuffer->RecordCommandBuffer(imageIndex);
+	commandBuffer->BeginRecording(imageIndex);
+
+	for (const auto& instance : scene->GetInstances())
+	{
+		commandBuffer->BindPushConstants(instance.transform);
+
+		instance.mesh->Bind(commandBuffer->GetCommandBuffer());
+		instance.mesh->Draw(commandBuffer->GetCommandBuffer());
+	}
+
+	commandBuffer->EndRecording(imageIndex);
 
 	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -249,7 +255,7 @@ void VulkanRenderer::DrawFrame()
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
-	VkCommandBuffer cmdBuffer = commandBuffer->GetCommandBuffer(imageIndex);
+	VkCommandBuffer cmdBuffer = commandBuffer->GetCommandBuffer();
 	submitInfo.pCommandBuffers = &cmdBuffer;
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
@@ -297,7 +303,7 @@ void VulkanRenderer::ReCreateSwapChain(GLFWwindow* window)
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
 	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
-	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, *vertexBuffer, *indexBuffer, descriptorSet);
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, descriptorSet);
 
 	float newAspect = (float)device->GetSwapChain()->GetSwapChainExtent().width / (float)device->GetSwapChain()->GetSwapChainExtent().height;
 	if (camera)
@@ -316,7 +322,7 @@ void VulkanRenderer::ReloadShaders()
 	commandBuffer.reset();
 
 	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
-	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, *vertexBuffer, *indexBuffer, descriptorSet);
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, descriptorSet);
 
 	std::cout << "[INFO] Shaders reloaded" << std::endl;
 }

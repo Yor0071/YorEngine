@@ -53,3 +53,10 @@ VertexBuffer::~VertexBuffer()
 		vkFreeMemory(device.GetLogicalDevice(), memory, nullptr);
 	}
 }
+
+void VertexBuffer::Bind(VkCommandBuffer commandBuffer) const
+{
+	VkBuffer vertexBuffers[] = { buffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+}

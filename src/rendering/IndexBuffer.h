@@ -15,6 +15,7 @@ public:
 	VkBuffer GetBuffer() const { return buffer; }
 	size_t GetIndexCount() const { return indexCount; }
 
+	void Bind(VkCommandBuffer commandBuffer) const;
 private:
 	VulkanDevice& device;
 	VkBuffer buffer = VK_NULL_HANDLE;

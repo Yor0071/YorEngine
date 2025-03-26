@@ -10,8 +10,6 @@
 #include "VulkanSwapChain.h"
 #include "VulkanRenderPass.h"
 #include "VulkanFramebuffer.h"
-#include "VertexBuffer.h"
-#include "IndexBuffer.h"
 #include "VulkanGraphicsPipeline.h"
 
 class VulkanCommandBuffer
@@ -22,13 +20,15 @@ public:
 		VulkanRenderPass& renderPass,
 		VulkanFramebuffer& framebuffer,
 		VulkanGraphicsPipeline& graphicsPipeline,
-		VertexBuffer& vertexBuffer,
-		IndexBuffer& indexBuffer,
 		VkDescriptorSet descriptorSet);
 	~VulkanCommandBuffer();
 
-	void RecordCommandBuffer(uint32_t imageIndex);
-	VkCommandBuffer GetCommandBuffer(uint32_t index) const { return commandBuffers[index]; }
+	void BeginRecording(uint32_t imageIndex);
+	void EndRecording(uint32_t imageIndex);
+
+	void BindPushConstants(const glm::mat4& modelMatrix);
+
+	VkCommandBuffer GetCommandBuffer() const;
 
 private:
 	void CreateCommandBuffers();
@@ -38,11 +38,10 @@ private:
 	VulkanRenderPass& renderPass;
 	VulkanFramebuffer& framebuffer;
 	VulkanGraphicsPipeline& graphicsPipeline;
-	VertexBuffer& vertexBuffer;
-	IndexBuffer& indexBuffer;
 	VkDescriptorSet descriptorSet;
 
 	std::vector<VkCommandBuffer> commandBuffers;
+	uint32_t currentImageIndex = 0;
 };
 
 #endif // !VULKAN_COMMAND_BUFFER_H

@@ -51,3 +51,8 @@ IndexBuffer::~IndexBuffer()
 		vkFreeMemory(device.GetLogicalDevice(), memory, nullptr);
 	}
 }
+
+void IndexBuffer::Bind(VkCommandBuffer commandBuffer) const
+{
+	vkCmdBindIndexBuffer(commandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
+}
