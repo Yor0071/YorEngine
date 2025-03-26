@@ -10,19 +10,18 @@ class VulkanDevice;
 class VertexBuffer
 {
 public:
-	VertexBuffer(VulkanDevice& device, const void* vertexData, size_t size);
+	VertexBuffer(VkDevice device,uint32_t memoryTypeIndex, const void* vertexData, size_t size);
 	~VertexBuffer();
 
+	void Bind(VkCommandBuffer commandBuffer) const;
+	
 	VkBuffer GetBuffer() const { return buffer; }
-	//VkDeviceMemory GetBufferMemory() const { return bufferMemory; }
 	size_t GetVertexCount() const { return vertexCount; }
 
-	void Bind(VkCommandBuffer commandBuffer) const;
-
 private:
-	size_t vertexCount;
+	size_t vertexCount = 0;
 
-	VulkanDevice& device;
+	VkDevice device = VK_NULL_HANDLE;
 	VkBuffer buffer = VK_NULL_HANDLE;
 	VkDeviceMemory memory = VK_NULL_HANDLE;
 };

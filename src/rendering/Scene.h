@@ -19,6 +19,8 @@ public:
 
 	void AddModel(const std::string& filepath, VulkanDevice& device, const glm::mat4& transform);
 
+	void Clear();
+
 	const std::vector<ModelInstance>& GetInstances() const { return instances; }
 
 private:

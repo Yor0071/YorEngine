@@ -9,7 +9,7 @@ class VulkanDevice;
 class IndexBuffer
 {
 public:
-	IndexBuffer(VulkanDevice& device, const void* indexData, size_t size, uint32_t indexCount);
+	IndexBuffer(VkDevice device, uint32_t memoryTypeIndex, const void* indexData, size_t size, uint32_t indexCount);
 	~IndexBuffer();
 
 	VkBuffer GetBuffer() const { return buffer; }
@@ -17,7 +17,7 @@ public:
 
 	void Bind(VkCommandBuffer commandBuffer) const;
 private:
-	VulkanDevice& device;
+	VkDevice device = VK_NULL_HANDLE;
 	VkBuffer buffer = VK_NULL_HANDLE;
 	VkDeviceMemory memory = VK_NULL_HANDLE;
 	size_t indexCount = 0;

@@ -27,3 +27,15 @@ void Scene::AddModel(const std::string& filepath, VulkanDevice& device, const gl
         std::cerr << "[Scene] Failed to load model: " << filepath << std::endl;
     }
 }
+
+void Scene::Clear()
+{
+    for (auto& instance : instances)
+    {
+        if (instance.mesh)
+        {
+            instance.mesh->Destroy();
+        }
+    }
+    instances.clear();
+}

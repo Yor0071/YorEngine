@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <cstring>
 
-VertexBuffer::VertexBuffer(VulkanDevice& device, const void* vertexData, size_t size)
+VertexBuffer::VertexBuffer(VkDevice device, uint32_t memoryTypeIndex, const void* vertexData, size_t size)
 	: device(device)
 {
 	vertexCount = size / sizeof(Vertex);
@@ -15,42 +15,44 @@ VertexBuffer::VertexBuffer(VulkanDevice& device, const void* vertexData, size_t 
 	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	if (vkCreateBuffer(device.GetLogicalDevice(), &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+	if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create vertex buffer!");
 	}
 
 	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(device.GetLogicalDevice(), buffer, &memRequirements);
+	vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
 
 	VkMemoryAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = device.FindMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	allocInfo.memoryTypeIndex = memoryTypeIndex;
 
-	if (vkAllocateMemory(device.GetLogicalDevice(), &allocInfo, nullptr, &memory) != VK_SUCCESS)
+	if (vkAllocateMemory(device, &allocInfo, nullptr, &memory) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to allocate vertex buffer memory!");
 	}
 
-	vkBindBufferMemory(device.GetLogicalDevice(), buffer, memory, 0);
+	vkBindBufferMemory(device, buffer, memory, 0);
 
 	void* mappedData;
-	vkMapMemory(device.GetLogicalDevice(), memory, 0, size, 0, &mappedData);
+	vkMapMemory(device, memory, 0, size, 0, &mappedData);
 	std::memcpy(mappedData, vertexData, size);
-	vkUnmapMemory(device.GetLogicalDevice(), memory);
+	vkUnmapMemory(device, memory);
 }
 
 VertexBuffer::~VertexBuffer()
 {
 	if (buffer != VK_NULL_HANDLE)
 	{
-		vkDestroyBuffer(device.GetLogicalDevice(), buffer, nullptr);
+		vkDestroyBuffer(device, buffer, nullptr);
+		buffer = VK_NULL_HANDLE;
 	}
 
 	if (memory != VK_NULL_HANDLE)
 	{
-		vkFreeMemory(device.GetLogicalDevice(), memory, nullptr);
+		vkFreeMemory(device, memory, nullptr);
+		memory = VK_NULL_HANDLE;
 	}
 }
 

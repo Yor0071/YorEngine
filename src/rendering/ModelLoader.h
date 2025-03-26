@@ -27,6 +27,8 @@ private:
 	static std::shared_ptr<Mesh> ProcessMesh(const aiMesh* mesh, VulkanDevice& device);
 
 	static glm::mat4 ConvertMatrix(const aiMatrix4x4& matrix);
+
+	static std::unordered_map<unsigned int, std::shared_ptr<Mesh>> meshCache;
 };
 
 #endif // !MODEL_LOADER_H

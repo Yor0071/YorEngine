@@ -131,6 +131,22 @@ void VulkanRenderer::Cleanup()
 	if (device) {
 		vkDeviceWaitIdle(device->GetLogicalDevice());
 
+		if (scene) {
+			scene->Clear();
+		}
+
+		commandBuffer.reset();
+		mvpBuffer.reset();
+		graphicsPipeline.reset();
+		framebuffer.reset();
+		renderPass.reset();
+
+		if (descriptorPool != VK_NULL_HANDLE)
+		{
+			vkDestroyDescriptorPool(device->GetLogicalDevice(), descriptorPool, nullptr);
+			descriptorPool = VK_NULL_HANDLE;
+		}
+
 		if (imageAvailableSemaphore) {
 			vkDestroySemaphore(device->GetLogicalDevice(), imageAvailableSemaphore, nullptr);
 			imageAvailableSemaphore = VK_NULL_HANDLE;
@@ -145,23 +161,9 @@ void VulkanRenderer::Cleanup()
 			vkDestroyFence(device->GetLogicalDevice(), inFlightFence, nullptr);
 			inFlightFence = VK_NULL_HANDLE;
 		}
+
+		device.reset();
 	}
-
-	commandBuffer.reset();
-	mvpBuffer.reset();
-	graphicsPipeline.reset();
-	framebuffer.reset();
-	renderPass.reset();
-
-	if (descriptorPool != VK_NULL_HANDLE)
-	{
-		vkDestroyDescriptorPool(device->GetLogicalDevice(), descriptorPool, nullptr);
-		descriptorPool = VK_NULL_HANDLE;
-	}
-
-	scene.reset();
-
-	device.reset();
 
 	if (surface != VK_NULL_HANDLE)
 	{
