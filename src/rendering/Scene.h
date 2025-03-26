@@ -16,11 +16,13 @@ class Scene
 {
 public:
 	void Load(VulkanDevice& device);
-	const std::vector<ModelInstance>& GetInstances() const;
+
 	void AddModel(const std::string& filepath, VulkanDevice& device, const glm::mat4& transform);
 
+	const std::vector<ModelInstance>& GetInstances() const { return instances; }
+
 private:
-	std::vector<std::shared_ptr<Mesh>> loadedMeshes;
+	//std::vector<std::shared_ptr<Mesh>> loadedMeshes;
 	std::vector<ModelInstance> instances;
 };
 

@@ -36,11 +36,12 @@ int main()
 			}
 
 			// ../assets/models/Main.1_Sponza/NewSponza_Main_Yup_003.fbx
+			// ../assets/models/cactus.fbx
 
 			if (!ModelLoaded && glfwGetKey(window.GetWindow(), GLFW_KEY_M) == GLFW_PRESS)
 			{
 				renderer.GetScene().AddModel(
-					"../assets/models/cactus.fbx",
+					"../assets/models/Main.1_Sponza/NewSponza_Main_Yup_003.fbx",
 					*renderer.GetDevice(),
 					glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f))
 				);
