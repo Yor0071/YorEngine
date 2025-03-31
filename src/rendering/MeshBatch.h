@@ -38,6 +38,8 @@ public:
 	VkBuffer GetVertexBuffer() const { return vertexBuffer; };
 	VkBuffer GetIndexBuffer() const { return indexBuffer; };
 
+	void SetCustomCommandPool(VkCommandPool customPool);
+
 	void Reset();
 private:
 	std::vector<Vertex> allVertices;
@@ -48,6 +50,8 @@ private:
 	VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
 	VkBuffer indexBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
+
+	VkCommandPool overrideCommandPool = VK_NULL_HANDLE;
 
 	bool uploaded = false;
 };

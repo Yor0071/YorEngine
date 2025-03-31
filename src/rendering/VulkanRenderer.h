@@ -17,6 +17,7 @@
 #include "ModelLoader.h"
 #include "Scene.h"
 #include "MeshBatch.h"
+#include "AsyncModelLoader.h"
 
 #include "../core/Camera.h"
 
@@ -35,6 +36,7 @@ public:
 	void ReloadShaders();
 	void UpdateUniformBuffer();
 	void Update(float deltaTime);
+	void LoadModelAsync(const std::string& path);
 	Camera* GetCamera() { return camera.get(); }
 	Scene& GetScene() { return *scene; }
 	VulkanDevice* GetDevice() { return device.get(); }
@@ -66,9 +68,10 @@ private:
 	std::unique_ptr<UniformBuffer<UniformBufferObject>> mvpBuffer;
 	std::unique_ptr<Camera> camera;
 	std::unique_ptr<InputHandler> inputHandler;
-	std::unique_ptr<Scene> scene;
+	std::shared_ptr<Scene> scene;
 
 	MeshBatch meshBatch;
+	AsyncModelLoader asyncLoader;
 };
 
 #endif // !VULKAN_RENDERER_H

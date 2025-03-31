@@ -231,21 +231,25 @@ void VulkanRenderer::DrawFrame()
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	if (vkQueueSubmit(device->GetGraphicsQueue(), 1, &submitInfo, inFlightFence) != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to submit draw command buffer!");
+		//std::cout << "[DrawFrame] Mutex addr: " << &device->queueSubmitMutex << ", Thread ID: " << std::this_thread::get_id() << "\n";
+		std::lock_guard<std::mutex> lock(device->queueSubmitMutex);
+		if (vkQueueSubmit(device->GetGraphicsQueue(), 1, &submitInfo, inFlightFence) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to submit draw command buffer!");
+		}
+
+		VkPresentInfoKHR presentInfo{};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = signalSemaphores;
+		presentInfo.swapchainCount = 1;
+		VkSwapchainKHR swapChain = device->GetSwapChain()->GetSwapChain();
+		presentInfo.pSwapchains = &swapChain;
+		presentInfo.pImageIndices = &imageIndex;
+
+		result = vkQueuePresentKHR(device->GetPresentQueue(), &presentInfo);
 	}
-
-	VkPresentInfoKHR presentInfo{};
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = signalSemaphores;
-	presentInfo.swapchainCount = 1;
-	VkSwapchainKHR swapChain = device->GetSwapChain()->GetSwapChain();
-	presentInfo.pSwapchains = &swapChain;
-	presentInfo.pImageIndices = &imageIndex;
-
-	result = vkQueuePresentKHR(device->GetPresentQueue(), &presentInfo);
 
 	if (result != VK_SUCCESS)
 	{
@@ -304,7 +308,32 @@ void VulkanRenderer::Update(float deltaTime)
 	{
 		inputHandler->Update(deltaTime);
 	}
+
+	if (auto result = asyncLoader.GetResult())
+	{
+		if (result->success)
+		{
+			std::cout << "[VulkanRenderer] Model loaded async\n";
+
+			vkDeviceWaitIdle(device->GetLogicalDevice());
+
+			scene->Clear();
+			meshBatch.Destroy(device->GetLogicalDevice());
+
+			meshBatch = std::move(result->meshBatch);
+			scene = std::move(result->scene);
+
+			scene->SetDevice(device.get());
+			scene->SetMeshBatch(&meshBatch);
+			scene->Upload(*device);
+		}
+		else
+		{
+			std::cerr << "[VulkanRenderer] Failed to load model async\n";
+		}
+	}
 }
+
 
 void VulkanRenderer::UpdateUniformBuffer() {
 	UniformBufferObject ubo{};
@@ -327,4 +356,9 @@ std::vector<const char*> VulkanRenderer::GetRequiredExtensions()
 	const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
 	return std::vector<const char*>(glfwExtensions, glfwExtensions + glfwExtensionCount);
+}
+
+void VulkanRenderer::LoadModelAsync(const std::string& path)
+{
+	asyncLoader.RequestLoad(path, *device);
 }

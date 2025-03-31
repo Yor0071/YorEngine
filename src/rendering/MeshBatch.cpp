@@ -40,7 +40,9 @@ void MeshBatch::UploadToGPU(VulkanDevice& device)
 	uploaded = true;
 
 	VkDevice logicalDevice = device.GetLogicalDevice();
-	VkCommandPool commandPool = device.GetCommandPool();
+	VkCommandPool commandPool = overrideCommandPool != VK_NULL_HANDLE
+		? overrideCommandPool
+		: device.GetCommandPool();
 	VkQueue graphicsQueue = device.GetGraphicsQueue();
 
 	// Helper lambda for creating and filling staging buffers
@@ -103,7 +105,9 @@ void MeshBatch::UploadMeshToGPU(VulkanDevice& device, const std::vector<Vertex>&
 	}
 
 	VkDevice logicalDevice = device.GetLogicalDevice();
-	VkCommandPool commandPool = device.GetCommandPool();
+	VkCommandPool commandPool = overrideCommandPool != VK_NULL_HANDLE
+		? overrideCommandPool
+		: device.GetCommandPool();
 	VkQueue graphicsQueue = device.GetGraphicsQueue();
 
 	VkDeviceSize vertexSize = sizeof(Vertex) * vertices.size();
@@ -194,4 +198,8 @@ void MeshBatch::BindBuffers(VkCommandBuffer commandBuffer) const
 	VkDeviceSize offset = 0;
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, &offset);
 	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+}
+
+void MeshBatch::SetCustomCommandPool(VkCommandPool customPool) {
+	overrideCommandPool = customPool;
 }
