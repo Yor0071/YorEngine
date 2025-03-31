@@ -1,8 +1,12 @@
 #include "core/Window.h"
 #include "rendering/VulkanRenderer.h"
+#include "rendering/ModelLoader.h"
+#include "rendering/Vertex.h"
 #include "input/InputHandler.h"
 #include <iostream>
 #include <filesystem>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
 
 int main()
 {
@@ -14,6 +18,8 @@ int main()
 		renderer.Init(window.GetWindow());
 
 		float lastTime = glfwGetTime();
+
+		bool ModelLoaded = false;
 
 		while (!window.ShouldClose())
 		{
@@ -31,11 +37,43 @@ int main()
 				window.ResetResizeFlag();
 			}
 
+			// ../assets/models/Main.1_Sponza/NewSponza_Main_Yup_003.fbx
+			// ../assets/models/cactus.fbx
+
+			if (!ModelLoaded && glfwGetKey(window.GetWindow(), GLFW_KEY_M) == GLFW_PRESS)
+			{
+				const std::string modelPath = "../assets/models/Main.1_Sponza/NewSponza_Main_Yup_003.fbx";
+
+				auto& scene = renderer.GetScene();
+				auto& batch = scene.GetMeshBatch();
+
+				scene.Clear();
+				scene.SetDevice(renderer.GetDevice());
+				scene.SetMeshBatch(&renderer.GetMeshBatch());
+
+				if (ModelLoader::LoadModel(modelPath, *renderer.GetDevice(), renderer.GetMeshBatch(), scene))
+				{
+					scene.Upload(*renderer.GetDevice());
+					std::cout << "[Main] Model loaded and uploaded to GPU\n";
+				}
+				else
+				{
+					std::cerr << "[Main] Failed to load model\n";
+				}
+
+				ModelLoaded = true;
+			}
+
+			if (glfwGetKey(window.GetWindow(), GLFW_KEY_M) == GLFW_RELEASE)
+			{
+				ModelLoaded = false; // debounce
+			}
+
 			renderer.DrawFrame();
 		}
 
 		renderer.Cleanup();
-
+		
 		return 0;
 	}
 	catch (const std::exception& e)

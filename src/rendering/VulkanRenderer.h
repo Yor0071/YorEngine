@@ -12,10 +12,11 @@
 #include "VulkanFrameBuffer.h"
 #include "VulkanGraphicsPipeline.h"
 #include "VulkanCommandBuffer.h"
-#include "VertexBuffer.h"
-#include "IndexBuffer.h"
 #include "UniformBuffer.h"
 #include "UniformBufferObject.h"
+#include "ModelLoader.h"
+#include "Scene.h"
+#include "MeshBatch.h"
 
 #include "../core/Camera.h"
 
@@ -35,11 +36,17 @@ public:
 	void UpdateUniformBuffer();
 	void Update(float deltaTime);
 	Camera* GetCamera() { return camera.get(); }
+	Scene& GetScene() { return *scene; }
+	VulkanDevice* GetDevice() { return device.get(); }
+	MeshBatch& GetMeshBatch() { return meshBatch; }
 
 private:
 	void CreateInstance();
 	void CreateSurface(GLFWwindow* window);
 	std::vector<const char*> GetRequiredExtensions();
+
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
 
 	VkInstance vulkanInstance;
 	VkSurfaceKHR surface;
@@ -56,11 +63,12 @@ private:
 	std::unique_ptr<VulkanFramebuffer> framebuffer;
 	std::unique_ptr<VulkanGraphicsPipeline> graphicsPipeline;
 	std::unique_ptr<VulkanCommandBuffer> commandBuffer;
-	std::unique_ptr<VertexBuffer> vertexBuffer;
-	std::unique_ptr<IndexBuffer> indexBuffer;
 	std::unique_ptr<UniformBuffer<UniformBufferObject>> mvpBuffer;
 	std::unique_ptr<Camera> camera;
 	std::unique_ptr<InputHandler> inputHandler;
+	std::unique_ptr<Scene> scene;
+
+	MeshBatch meshBatch;
 };
 
 #endif // !VULKAN_RENDERER_H

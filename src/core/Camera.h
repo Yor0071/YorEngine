@@ -37,7 +37,7 @@ private:
 	float nearPlane;
 	float farPlane;
 
-	float movementSpeed = 3.0f;
+	float movementSpeed = 100.0f;
 	float mouseSensitivity = 0.1f;
 };
 
