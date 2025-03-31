@@ -3,13 +3,9 @@
 #include <cstring>
 #include <iostream>
 
-MeshBatch::MeshBatch()
-{
-}
+MeshBatch::MeshBatch() = default;
 
-MeshBatch::~MeshBatch()
-{
-}
+MeshBatch::~MeshBatch() = default;
 
 MeshBatch::MeshRange MeshBatch::AddMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 {
@@ -47,74 +43,55 @@ void MeshBatch::UploadToGPU(VulkanDevice& device)
 	VkCommandPool commandPool = device.GetCommandPool();
 	VkQueue graphicsQueue = device.GetGraphicsQueue();
 
+	// Helper lambda for creating and filling staging buffers
+	auto createStagingBuffer = [&](VkDeviceSize size, const void* data, VkBuffer& stagingBuffer, VkDeviceMemory& stagingMemory) {
+		device.CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer, stagingMemory);
+
+		void* dst;
+		vkMapMemory(logicalDevice, stagingMemory, 0, size, 0, &dst);
+		memcpy(dst, data, static_cast<size_t>(size));
+		vkUnmapMemory(logicalDevice, stagingMemory);
+		};
+
 	// === VERTEX BUFFER ===
-	VkDeviceSize vertexBufferSize = sizeof(Vertex) * allVertices.size();
+	VkDeviceSize vertexSize = sizeof(Vertex) * allVertices.size();
+	VkBuffer vertexStaging, indexStaging;
+	VkDeviceMemory vertexStagingMem, indexStagingMem;
 
-	VkBuffer vertexStagingBuffer;
-	VkDeviceMemory vertexStagingMemory;
-	device.CreateBuffer(
-		vertexBufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		vertexStagingBuffer,
-		vertexStagingMemory
-	);
+	createStagingBuffer(vertexSize, allVertices.data(), vertexStaging, vertexStagingMem);
 
-	void* vertexData;
-	vkMapMemory(logicalDevice, vertexStagingMemory, 0, vertexBufferSize, 0, &vertexData);
-	memcpy(vertexData, allVertices.data(), static_cast<size_t>(vertexBufferSize));
-	vkUnmapMemory(logicalDevice, vertexStagingMemory);
-
-	device.CreateBuffer(
-		vertexBufferSize,
+	device.CreateBuffer(vertexSize,
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		vertexBuffer,
-		vertexBufferMemory
-	);
+		vertexBuffer, vertexBufferMemory);
 
-	device.CopyBuffer(vertexStagingBuffer, vertexBuffer, vertexBufferSize, commandPool, graphicsQueue);
+	device.CopyBuffer(vertexStaging, vertexBuffer, vertexSize, commandPool, graphicsQueue);
 
-	vkDestroyBuffer(logicalDevice, vertexStagingBuffer, nullptr);
-	vkFreeMemory(logicalDevice, vertexStagingMemory, nullptr);
+	vkDestroyBuffer(logicalDevice, vertexStaging, nullptr);
+	vkFreeMemory(logicalDevice, vertexStagingMem, nullptr);
 
 	// === INDEX BUFFER ===
-	VkDeviceSize indexBufferSize = sizeof(uint32_t) * allIndices.size();
+	VkDeviceSize indexSize = sizeof(uint32_t) * allIndices.size();
 
-	VkBuffer indexStagingBuffer;
-	VkDeviceMemory indexStagingMemory;
-	device.CreateBuffer(
-		indexBufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		indexStagingBuffer,
-		indexStagingMemory
-	);
+	createStagingBuffer(indexSize, allIndices.data(), indexStaging, indexStagingMem);
 
-	void* indexData;
-	vkMapMemory(logicalDevice, indexStagingMemory, 0, indexBufferSize, 0, &indexData);
-	memcpy(indexData, allIndices.data(), static_cast<size_t>(indexBufferSize));
-	vkUnmapMemory(logicalDevice, indexStagingMemory);
-
-	device.CreateBuffer(
-		indexBufferSize,
+	device.CreateBuffer(indexSize,
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		indexBuffer,
-		indexBufferMemory
-	);
+		indexBuffer, indexBufferMemory);
 
-	device.CopyBuffer(indexStagingBuffer, indexBuffer, indexBufferSize, commandPool, graphicsQueue);
+	device.CopyBuffer(indexStaging, indexBuffer, indexSize, commandPool, graphicsQueue);
 
-	vkDestroyBuffer(logicalDevice, indexStagingBuffer, nullptr);
-	vkFreeMemory(logicalDevice, indexStagingMemory, nullptr);
+	vkDestroyBuffer(logicalDevice, indexStaging, nullptr);
+	vkFreeMemory(logicalDevice, indexStagingMem, nullptr);
 
-	// Cleanup CPU-side mesh data
 	allVertices.clear();
 	allIndices.clear();
 
-	std::cout << "[MeshBatch] Upload complete (" << vertexBufferSize / (1024.0 * 1024.0)
-		<< " MB vertices, " << indexBufferSize / (1024.0 * 1024.0) << " MB indices)\n";
+	std::cout << "[MeshBatch] Upload complete (" << vertexSize / (1024.0 * 1024.0)
+		<< " MB vertices, " << indexSize / (1024.0 * 1024.0) << " MB indices)\n";
 }
 
 void MeshBatch::UploadMeshToGPU(VulkanDevice& device, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, MeshRange& outRange)
@@ -122,88 +99,93 @@ void MeshBatch::UploadMeshToGPU(VulkanDevice& device, const std::vector<Vertex>&
 	std::cout << "[MeshBatch] Uploading mesh: " << vertices.size() << " vertices, " << indices.size() << " indices\n";
 
 	if (vertices.empty() || indices.empty()) {
-		throw std::runtime_error("Attempted to upload mesh with no vertices or indices.");
+		throw std::runtime_error("[MeshBatch] Attempted to upload empty mesh.");
 	}
 
 	VkDevice logicalDevice = device.GetLogicalDevice();
 	VkCommandPool commandPool = device.GetCommandPool();
 	VkQueue graphicsQueue = device.GetGraphicsQueue();
 
+	VkDeviceSize vertexSize = sizeof(Vertex) * vertices.size();
+	VkDeviceSize indexSize = sizeof(uint32_t) * indices.size();
+
+	auto createStagingBuffer = [&](VkDeviceSize size, const void* data, VkBuffer& buffer, VkDeviceMemory& memory) {
+		device.CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			buffer, memory);
+
+		void* dst;
+		vkMapMemory(logicalDevice, memory, 0, size, 0, &dst);
+		memcpy(dst, data, static_cast<size_t>(size));
+		vkUnmapMemory(logicalDevice, memory);
+		};
+
+	VkBuffer vertexStaging, indexStaging;
+	VkDeviceMemory vertexStagingMem, indexStagingMem;
+	createStagingBuffer(vertexSize, vertices.data(), vertexStaging, vertexStagingMem);
+	createStagingBuffer(indexSize, indices.data(), indexStaging, indexStagingMem);
+
 	VkBuffer vertexBuffer, indexBuffer;
 	VkDeviceMemory vertexMemory, indexMemory;
 
-	// === VERTEX STAGING ===
-	VkDeviceSize vertexSize = sizeof(Vertex) * vertices.size();
-
-	VkBuffer vertexStaging;
-	VkDeviceMemory vertexStagingMem;
-	device.CreateBuffer(vertexSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		vertexStaging, vertexStagingMem);
-
-	void* vertexData;
-	vkMapMemory(logicalDevice, vertexStagingMem, 0, vertexSize, 0, &vertexData);
-	memcpy(vertexData, vertices.data(), (size_t)vertexSize);
-	vkUnmapMemory(logicalDevice, vertexStagingMem);
-
-	device.CreateBuffer(vertexSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	device.CreateBuffer(vertexSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexMemory);
-
 	device.CopyBuffer(vertexStaging, vertexBuffer, vertexSize, commandPool, graphicsQueue);
+
+	device.CreateBuffer(indexSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexMemory);
+	device.CopyBuffer(indexStaging, indexBuffer, indexSize, commandPool, graphicsQueue);
 
 	vkDestroyBuffer(logicalDevice, vertexStaging, nullptr);
 	vkFreeMemory(logicalDevice, vertexStagingMem, nullptr);
-
-	// === INDEX STAGING ===
-	VkDeviceSize indexSize = sizeof(uint32_t) * indices.size();
-
-	VkBuffer indexStaging;
-	VkDeviceMemory indexStagingMem;
-	device.CreateBuffer(indexSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		indexStaging, indexStagingMem);
-
-	void* indexData;
-	vkMapMemory(logicalDevice, indexStagingMem, 0, indexSize, 0, &indexData);
-	memcpy(indexData, indices.data(), (size_t)indexSize);
-	vkUnmapMemory(logicalDevice, indexStagingMem);
-
-	device.CreateBuffer(indexSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexMemory);
-
-	device.CopyBuffer(indexStaging, indexBuffer, indexSize, commandPool, graphicsQueue);
-
 	vkDestroyBuffer(logicalDevice, indexStaging, nullptr);
 	vkFreeMemory(logicalDevice, indexStagingMem, nullptr);
 
-	// Save the mesh reference
 	outRange.vertexOffset = 0;
 	outRange.indexOffset = 0;
 	outRange.indexCount = static_cast<uint32_t>(indices.size());
 
-	GpuMesh mesh;
-	mesh.vertexBuffer = vertexBuffer;
-	mesh.vertexMemory = vertexMemory;
-	mesh.indexBuffer = indexBuffer;
-	mesh.indexMemory = indexMemory;
-	mesh.range = outRange;
+	GpuMesh mesh{ vertexBuffer, vertexMemory, indexBuffer, indexMemory, outRange };
 	gpuMeshes.push_back(mesh);
 }
 
+const MeshBatch::GpuMesh& MeshBatch::GetLastUploadedMesh() const
+{
+	if (gpuMeshes.empty()) {
+		throw std::runtime_error("[MeshBatch] No uploaded meshes available.");
+	}
+	return gpuMeshes.back();
+}
+
+void MeshBatch::Reset()
+{
+	allVertices.clear();
+	allIndices.clear();
+	uploaded = false;
+}
 
 void MeshBatch::Destroy(VkDevice device)
 {
 	for (const auto& mesh : gpuMeshes) {
-		if (mesh.vertexBuffer != VK_NULL_HANDLE)
-			vkDestroyBuffer(device, mesh.vertexBuffer, nullptr);
-		if (mesh.vertexMemory != VK_NULL_HANDLE)
-			vkFreeMemory(device, mesh.vertexMemory, nullptr);
-		if (mesh.indexBuffer != VK_NULL_HANDLE)
-			vkDestroyBuffer(device, mesh.indexBuffer, nullptr);
-		if (mesh.indexMemory != VK_NULL_HANDLE)
-			vkFreeMemory(device, mesh.indexMemory, nullptr);
+		if (mesh.vertexBuffer) vkDestroyBuffer(device, mesh.vertexBuffer, nullptr);
+		if (mesh.vertexMemory) vkFreeMemory(device, mesh.vertexMemory, nullptr);
+		if (mesh.indexBuffer) vkDestroyBuffer(device, mesh.indexBuffer, nullptr);
+		if (mesh.indexMemory) vkFreeMemory(device, mesh.indexMemory, nullptr);
 	}
 	gpuMeshes.clear();
+
+	if (vertexBuffer) vkDestroyBuffer(device, vertexBuffer, nullptr);
+	if (vertexBufferMemory) vkFreeMemory(device, vertexBufferMemory, nullptr);
+	if (indexBuffer) vkDestroyBuffer(device, indexBuffer, nullptr);
+	if (indexBufferMemory) vkFreeMemory(device, indexBufferMemory, nullptr);
+
+	vertexBuffer = VK_NULL_HANDLE;
+	vertexBufferMemory = VK_NULL_HANDLE;
+	indexBuffer = VK_NULL_HANDLE;
+	indexBufferMemory = VK_NULL_HANDLE;
+	uploaded = false;
 }
 
 void MeshBatch::BindBuffers(VkCommandBuffer commandBuffer) const

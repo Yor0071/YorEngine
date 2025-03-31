@@ -15,17 +15,17 @@
 class Scene
 {
 public:
-	void Load(VulkanDevice& device, MeshBatch& batch);
 	void AddInstance(const glm::mat4 transform, std::shared_ptr<Mesh> mesh, uint32_t meshIndex);
-
 	const std::vector<ModelInstance>& GetInstances() const { return instances; }
 
 	void Upload(VulkanDevice& device);
 	const MeshBatch& GetMeshBatch() const { return *meshBatch; }
 	MeshBatch& GetMeshBatch() { return *meshBatch; }
+	
+	void SetMeshBatch(MeshBatch* batch) { meshBatch = batch; }
+	void SetDevice(VulkanDevice* device) { this->device = device; }
 
 	void Clear();
-	void SetDevice(VulkanDevice* device) { this->device = device; }
 private:
 	std::vector<ModelInstance> instances;
 	MeshBatch* meshBatch = nullptr;
