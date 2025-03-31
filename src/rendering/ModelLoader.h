@@ -20,6 +20,7 @@
 #include "ModelInstance.h"
 #include "VulkanDevice.h"
 #include "Scene.h"
+#include "ModelCacheManager.h"
 
 class Scene;
 
@@ -39,15 +40,6 @@ private:
 	static void ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene);
 
 	static glm::mat4 ConvertMatrix(const aiMatrix4x4& matrix);
-
-	static std::string GetMeshCachePath(const std::string& modelPath, unsigned int meshIndex);
-	static std::string GetSceneCachePath(const std::string& modelPath);
-
-	static bool LoadMeshFromCache(const std::string& path, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices);
-	static void SaveMeshToCache(const std::string& path, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
-
-	static bool LoadSceneCache(const std::string& path, const std::vector<std::shared_ptr<Mesh>>& meshes, Scene& outScene);
-	static void SaveSceneCache(const std::string& path, const Scene& scene, const std::vector<std::shared_ptr<Mesh>>& meshes);
 
 	static bool TryLoadCachedMeshes(const std::string& path, VulkanDevice& device, MeshBatch& batch, std::vector<std::shared_ptr<Mesh>>& outMeshes);
 	static bool TryLoadSceneCache(const std::string& scenePath, const std::vector<std::shared_ptr<Mesh>>& meshes, Scene& outScene);
