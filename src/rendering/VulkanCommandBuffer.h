@@ -28,7 +28,7 @@ public:
 
 	void BindPushConstants(const glm::mat4& modelMatrix);
 
-	VkCommandBuffer GetCommandBuffer() const;
+	VkCommandBuffer GetCommandBuffer(uint32_t imageIndex) const;
 
 private:
 	void CreateCommandBuffers();

@@ -1,5 +1,7 @@
 #include "core/Window.h"
 #include "rendering/VulkanRenderer.h"
+#include "rendering/ModelLoader.h"
+#include "rendering/Vertex.h"
 #include "input/InputHandler.h"
 #include <iostream>
 #include <filesystem>
@@ -40,11 +42,21 @@ int main()
 
 			if (!ModelLoaded && glfwGetKey(window.GetWindow(), GLFW_KEY_M) == GLFW_PRESS)
 			{
-				renderer.GetScene().AddModel(
-					"../assets/models/Main.1_Sponza/NewSponza_Main_Yup_003.fbx",
-					*renderer.GetDevice(),
-					glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f))
-				);
+				const std::string modelPath = "../assets/models/Main.1_Sponza/NewSponza_Main_Yup_003.fbx";
+
+				auto& scene = renderer.GetScene();
+				auto& batch = scene.GetMeshBatch();
+
+				if (ModelLoader::LoadModel(modelPath, *renderer.GetDevice(), batch, scene))
+				{
+					scene.Upload(*renderer.GetDevice());
+					std::cout << "[Main] Model loaded and uploaded to GPU\n";
+				}
+				else
+				{
+					std::cerr << "[Main] Failed to load model\n";
+				}
+
 				ModelLoaded = true;
 			}
 
@@ -57,7 +69,7 @@ int main()
 		}
 
 		renderer.Cleanup();
-
+		
 		return 0;
 	}
 	catch (const std::exception& e)

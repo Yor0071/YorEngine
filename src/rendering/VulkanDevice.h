@@ -17,6 +17,8 @@ public:
 	~VulkanDevice();
 
 	void RecreateSwapChain();
+	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue graphicsQueue);
+	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
 	VkPhysicalDevice GetPhysicalDevice() const { return physicalDevice; }
 	VkDevice GetLogicalDevice() const { return logicalDevice; }

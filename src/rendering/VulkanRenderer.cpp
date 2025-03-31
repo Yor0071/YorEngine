@@ -9,39 +9,7 @@ VulkanRenderer::~VulkanRenderer()
 {
 	Cleanup();
 }
-/*
-// ==================================TEMPORARY======================================================
-const std::vector<Vertex> vertices = {
-	// Front face
-	{{-0.5f, -0.5f,  0.5f}, {1.f, 0.f, 0.f}}, // 0
-	{{ 0.5f, -0.5f,  0.5f}, {0.f, 1.f, 0.f}}, // 1
-	{{ 0.5f,  0.5f,  0.5f}, {0.f, 0.f, 1.f}}, // 2
-	{{-0.5f,  0.5f,  0.5f}, {1.f, 1.f, 0.f}}, // 3
 
-	// Back face
-	{{-0.5f, -0.5f, -0.5f}, {1.f, 0.f, 1.f}}, // 4
-	{{ 0.5f, -0.5f, -0.5f}, {0.f, 1.f, 1.f}}, // 5
-	{{ 0.5f,  0.5f, -0.5f}, {1.f, 1.f, 1.f}}, // 6
-	{{-0.5f,  0.5f, -0.5f}, {0.f, 0.f, 0.f}}, // 7
-};
-
-const std::vector<uint16_t> indices = {
-	// Front face
-	0, 1, 2,  2, 3, 0,
-	// Right face
-	1, 5, 6,  6, 2, 1,
-	// Back face
-	5, 4, 7,  7, 6, 5,
-	// Left face
-	4, 0, 3,  3, 7, 4,
-	// Top face
-	3, 2, 6,  6, 7, 3,
-	// Bottom face
-	4, 5, 1,  1, 0, 4
-};
-
-// =================================================================================================
-*/
 void VulkanRenderer::Init(GLFWwindow* window)
 {
 	CreateInstance();
@@ -50,7 +18,7 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	device = std::make_unique<VulkanDevice>(vulkanInstance, surface);
 	
 	scene = std::make_unique<Scene>();
-	scene->Load(*device);
+	scene->Load(*device, meshBatch);
 
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
@@ -134,6 +102,8 @@ void VulkanRenderer::Cleanup()
 		if (scene) {
 			scene->Clear();
 		}
+
+		meshBatch.Destroy(device->GetLogicalDevice());
 
 		commandBuffer.reset();
 		mvpBuffer.reset();
@@ -240,9 +210,8 @@ void VulkanRenderer::DrawFrame()
 	for (const auto& instance : scene->GetInstances())
 	{
 		commandBuffer->BindPushConstants(instance.transform);
-
-		instance.mesh->Bind(commandBuffer->GetCommandBuffer());
-		instance.mesh->Draw(commandBuffer->GetCommandBuffer());
+		instance.mesh->Bind(commandBuffer->GetCommandBuffer(imageIndex));
+		instance.mesh->Draw(commandBuffer->GetCommandBuffer(imageIndex));
 	}
 
 	commandBuffer->EndRecording(imageIndex);
@@ -257,7 +226,7 @@ void VulkanRenderer::DrawFrame()
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
-	VkCommandBuffer cmdBuffer = commandBuffer->GetCommandBuffer();
+	VkCommandBuffer cmdBuffer = commandBuffer->GetCommandBuffer(imageIndex);
 	submitInfo.pCommandBuffers = &cmdBuffer;
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;

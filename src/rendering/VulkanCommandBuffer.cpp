@@ -90,8 +90,8 @@ void VulkanCommandBuffer::BindPushConstants(const glm::mat4& modelMatrix)
 	vkCmdPushConstants(commandBuffers[currentImageIndex], graphicsPipeline.GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
 }
 
-VkCommandBuffer VulkanCommandBuffer::GetCommandBuffer() const
+VkCommandBuffer VulkanCommandBuffer::GetCommandBuffer(uint32_t imageIndex) const
 {
-	return commandBuffers[currentImageIndex];
+	return commandBuffers[imageIndex];
 }
 	

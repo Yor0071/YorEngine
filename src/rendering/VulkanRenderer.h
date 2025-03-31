@@ -16,6 +16,7 @@
 #include "UniformBufferObject.h"
 #include "ModelLoader.h"
 #include "Scene.h"
+#include "MeshBatch.h"
 
 #include "../core/Camera.h"
 
@@ -65,6 +66,8 @@ private:
 	std::unique_ptr<Camera> camera;
 	std::unique_ptr<InputHandler> inputHandler;
 	std::unique_ptr<Scene> scene;
+
+	MeshBatch meshBatch;
 };
 
 #endif // !VULKAN_RENDERER_H
