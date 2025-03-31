@@ -34,11 +34,10 @@ public:
 	};
 
 	static bool LoadModel(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene);
+	static void ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene);
 
 
 private:
-	static void ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene);
-
 	static glm::mat4 ConvertMatrix(const aiMatrix4x4& matrix);
 
 	static bool TryLoadCachedMeshes(const std::string& path, VulkanDevice& device, MeshBatch& batch, std::vector<std::shared_ptr<Mesh>>& outMeshes);

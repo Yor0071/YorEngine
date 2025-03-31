@@ -43,24 +43,7 @@ int main()
 			if (!ModelLoaded && glfwGetKey(window.GetWindow(), GLFW_KEY_M) == GLFW_PRESS)
 			{
 				const std::string modelPath = "../assets/models/Main.1_Sponza/NewSponza_Main_Yup_003.fbx";
-
-				auto& scene = renderer.GetScene();
-				auto& batch = scene.GetMeshBatch();
-
-				scene.Clear();
-				scene.SetDevice(renderer.GetDevice());
-				scene.SetMeshBatch(&renderer.GetMeshBatch());
-
-				if (ModelLoader::LoadModel(modelPath, *renderer.GetDevice(), renderer.GetMeshBatch(), scene))
-				{
-					scene.Upload(*renderer.GetDevice());
-					std::cout << "[Main] Model loaded and uploaded to GPU\n";
-				}
-				else
-				{
-					std::cerr << "[Main] Failed to load model\n";
-				}
-
+				renderer.LoadModelAsync(modelPath);
 				ModelLoaded = true;
 			}
 

@@ -5,6 +5,8 @@
 #include <vector>
 #include <optional>
 #include <memory>
+#include <mutex>
+
 #include "QueueFamilyIndices.h"
 #include "VulkanDepthBuffer.h"
 
@@ -27,16 +29,22 @@ public:
 	VkCommandPool GetCommandPool() const { return commandPool; }
 	VkQueue GetGraphicsQueue() const { return graphicsQueue; }
 	VkQueue GetPresentQueue() const { return presentQueue; }
+	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
+	std::mutex queueSubmitMutex;
+	
+
+	// Test
+	//VulkanDevice(const VulkanDevice&) = delete;
+	//VulkanDevice& operator=(const VulkanDevice&) = delete;
 private:
 	void PickPhysicalDevice();
 	bool IsDeviceSuitable(VkPhysicalDevice device);
 	void CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 	void CreateCommandPool();
 
-	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 
 	VkInstance instance;
 	VkSurfaceKHR surface;

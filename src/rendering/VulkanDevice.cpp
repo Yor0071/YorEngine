@@ -69,8 +69,12 @@ void VulkanDevice::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
 
-	vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(graphicsQueue);
+	{
+		std::lock_guard<std::mutex> lock(queueSubmitMutex);
+		//std::cout << "[CopyBuffer] Mutex addr: " << &queueSubmitMutex << ", Thread ID: " << std::this_thread::get_id() << "\n";
+		vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsQueue);
+	}
 
 	vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
 }
