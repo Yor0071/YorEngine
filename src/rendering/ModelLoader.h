@@ -48,6 +48,10 @@ private:
 
 	static bool LoadSceneCache(const std::string& path, const std::vector<std::shared_ptr<Mesh>>& meshes, Scene& outScene);
 	static void SaveSceneCache(const std::string& path, const Scene& scene, const std::vector<std::shared_ptr<Mesh>>& meshes);
+
+	static bool TryLoadCachedMeshes(const std::string& path, VulkanDevice& device, MeshBatch& batch, std::vector<std::shared_ptr<Mesh>>& outMeshes);
+	static bool TryLoadSceneCache(const std::string& scenePath, const std::vector<std::shared_ptr<Mesh>>& meshes, Scene& outScene);
+	static void LoadWithAssimp(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene, std::vector<std::shared_ptr<Mesh>>& outMeshes);
 	
 	static std::unordered_map<unsigned int, std::shared_ptr<Mesh>> meshCache;
 };

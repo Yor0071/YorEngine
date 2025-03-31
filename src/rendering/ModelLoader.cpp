@@ -7,31 +7,46 @@ namespace fs = std::filesystem;
 
 bool ModelLoader::LoadModel(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene)
 {
-    outScene.Clear();
-    std::vector<std::shared_ptr<Mesh>> loadedMeshes;
+	outScene.Clear();
 
-    std::string baseName = fs::path(path).stem().string();
-    std::string cacheDir = "../assets/models/Cache/";
-    std::string sceneCachePath = cacheDir + baseName + "_scene.json";
+	std::vector<std::shared_ptr<Mesh>> loadedMeshes;
+	std::string sceneCachePath = GetSceneCachePath(path);
 
-    bool allMeshesCached = true;
+    if (TryLoadCachedMeshes(path, device, batch, loadedMeshes))
+    {
+        if (TryLoadSceneCache(sceneCachePath, loadedMeshes, outScene))
+        {
+            std::cout << "[ModelLoader] Loaded model and scene from cache.\n";
+            return true;
+        }
+        else
+        {
+            std::cerr << "[ModelLoader] Scene cache missing or invalid. Reloading full model.";
+        }
+    }
 
-    // Try loading ALL meshes from cache
+	LoadWithAssimp(path, device, batch, outScene, loadedMeshes);
+
+	SaveSceneCache(sceneCachePath, outScene, loadedMeshes);
+    return true;
+}
+
+bool ModelLoader::TryLoadCachedMeshes(const std::string& path, VulkanDevice& device, MeshBatch& batch, std::vector<std::shared_ptr<Mesh>>& outMeshes)
+{
     unsigned int meshIndex = 0;
+
     while (true) {
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
         std::string meshCachePath = GetMeshCachePath(path, meshIndex);
 
-        if (!fs::exists(meshCachePath))
-            break;
+        if (!fs::exists(meshCachePath)) break;
 
         if (!LoadMeshFromCache(meshCachePath, vertices, indices)) {
-            allMeshesCached = false;
-            break;
+            std::cerr << "[ModelLoader] Failed to load mesh cache: " << meshCachePath << "\n";
+            return false;
         }
 
-        // Upload to GPU
         MeshBatch::MeshRange range{};
         batch.UploadMeshToGPU(device, vertices, indices, range);
         const auto& gpuMesh = batch.GetLastUploadedMesh();
@@ -44,54 +59,24 @@ bool ModelLoader::LoadModel(const std::string& path, VulkanDevice& device, MeshB
             range
         );
 
-        loadedMeshes.push_back(meshPtr);
+        outMeshes.push_back(meshPtr);
         ++meshIndex;
     }
 
-    // If scene JSON is also cached and all meshes loaded, skip Assimp entirely
-    if (allMeshesCached) {
-        if (fs::exists(sceneCachePath)) {
-            if (ModelLoader::LoadSceneCache(sceneCachePath, loadedMeshes, outScene)) {
-                std::cout << "[ModelLoader] Loaded model and scene from cache.\n";
-                return true;
-            }
-            else {
-                std::cerr << "[ModelLoader] Scene cache exists but failed to load.\n";
-            }
-        }
+    return !outMeshes.empty();
+}
 
-        // Scene cache missing or invalid — fallback to Assimp for transform hierarchy
-        std::cout << "[ModelLoader] Meshes cached, but scene cache missing or invalid. Rebuilding scene.\n";
+bool ModelLoader::TryLoadSceneCache(const std::string& scenePath, const std::vector<std::shared_ptr<Mesh>>& meshes, Scene& outScene)
+{
+	if (!fs::exists(scenePath)) return false;
+	return LoadSceneCache(scenePath, meshes, outScene);
+}
 
-        Assimp::Importer importer;
-        const aiScene* aiScene = importer.ReadFile(path,
-            aiProcess_Triangulate |
-            aiProcess_GenNormals |
-            aiProcess_JoinIdenticalVertices |
-            aiProcess_ImproveCacheLocality |
-            aiProcess_OptimizeMeshes |
-            aiProcess_RemoveRedundantMaterials |
-            aiProcess_PreTransformVertices |
-            aiProcess_FlipUVs |
-            aiProcess_ConvertToLeftHanded
-        );
-
-        if (!aiScene || !aiScene->HasMeshes()) {
-            std::cerr << "[ModelLoader] Failed to reload scene with Assimp.\n";
-            return false;
-        }
-
-        ProcessNode(aiScene->mRootNode, glm::mat4(1.0f), loadedMeshes, outScene);
-        SaveSceneCache(sceneCachePath, outScene, loadedMeshes);
-        std::cout << "[ModelLoader] Rebuilt and saved scene cache.\n";
-
-        return true;
-    }
-
-	// Fallback to Assimp if not all meshes are cached
+void ModelLoader::LoadWithAssimp(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene, std::vector<std::shared_ptr<Mesh>>& outMeshes)
+{
     Assimp::Importer importer;
+    auto start = std::chrono::high_resolution_clock::now();
 
-	auto start = std::chrono::high_resolution_clock::now();
     const aiScene* aiScene = importer.ReadFile(path,
         aiProcess_Triangulate |
         aiProcess_GenNormals |
@@ -103,22 +88,15 @@ bool ModelLoader::LoadModel(const std::string& path, VulkanDevice& device, MeshB
         aiProcess_FlipUVs |
         aiProcess_ConvertToLeftHanded
     );
-	auto end = std::chrono::high_resolution_clock::now();
-	std::cout << "[Assimp] Load time: " << std::chrono::duration<double>(end - start).count() << "s\n";
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "[Assimp] Load time: " << std::chrono::duration<double>(end - start).count() << "s\n";
 
     if (!aiScene || !aiScene->HasMeshes()) {
-        std::cerr << "[ModelLoader] Failed to load: " << path << std::endl;
-        return false;
+        throw std::runtime_error("[ModelLoader] Failed to load model: " + path);
     }
 
     std::cout << "[ModelLoader] Scene contains " << aiScene->mNumMeshes << " meshes.\n";
-
-    size_t totalVertexCount = 0;
-    size_t totalIndexCount = 0;
-    size_t totalRawBytes = 0;
-    size_t totalCompressedBytes = 0;
-
-    outScene.Clear();
 
     for (unsigned int i = 0; i < aiScene->mNumMeshes; ++i) {
         const aiMesh* mesh = aiScene->mMeshes[i];
@@ -129,18 +107,15 @@ bool ModelLoader::LoadModel(const std::string& path, VulkanDevice& device, MeshB
 
         std::string cachePath = GetMeshCachePath(path, i);
         if (!LoadMeshFromCache(cachePath, vertices, indices)) {
-            // Fill vertices
             for (unsigned int v = 0; v < mesh->mNumVertices; ++v) {
                 Vertex vertex{};
                 vertex.pos = { mesh->mVertices[v].x, mesh->mVertices[v].y, mesh->mVertices[v].z };
                 vertex.color = mesh->HasNormals()
                     ? glm::vec3(mesh->mNormals[v].x, mesh->mNormals[v].y, mesh->mNormals[v].z)
                     : glm::vec3(1.0f);
-
                 vertices.push_back(vertex);
             }
 
-            // Fill indices
             for (unsigned int f = 0; f < mesh->mNumFaces; ++f) {
                 const aiFace& face = mesh->mFaces[f];
                 for (unsigned int j = 0; j < face.mNumIndices; ++j) {
@@ -155,23 +130,8 @@ bool ModelLoader::LoadModel(const std::string& path, VulkanDevice& device, MeshB
             std::cout << "[ModelLoader] Loaded from cache: " << cachePath << "\n";
         }
 
-        size_t rawSize = sizeof(Vertex) * vertices.size() + sizeof(uint32_t) * indices.size();
-        totalRawBytes += rawSize;
-        totalVertexCount += vertices.size();
-        totalIndexCount += indices.size();
-
-        std::cout << "[Mesh " << i << "] Vertices: " << vertices.size()
-            << ", Indices: " << indices.size()
-            << ", Raw: " << (rawSize / (1024.0 * 1024.0)) << " MB\n";
-
-		if (vertices.empty() || indices.empty()) {
-			std::cerr << "[ModelLoader] Mesh " << i << " has no vertices or indices.\n";
-			continue;
-		}
-
         MeshBatch::MeshRange range{};
         batch.UploadMeshToGPU(device, vertices, indices, range);
-
         const auto& gpuMesh = batch.GetLastUploadedMesh();
 
         auto meshPtr = std::make_shared<Mesh>(
@@ -182,20 +142,10 @@ bool ModelLoader::LoadModel(const std::string& path, VulkanDevice& device, MeshB
             range
         );
 
-        loadedMeshes.push_back(meshPtr);
+        outMeshes.push_back(meshPtr);
     }
 
-    std::cout << "\n[ModelLoader Summary]\n";
-    std::cout << "Total Vertices: " << totalVertexCount << "\n";
-    std::cout << "Total Indices: " << totalIndexCount << "\n";
-    std::cout << "Total Raw Memory Size: " << (totalRawBytes / (1024.0 * 1024.0)) << " MB\n";
-
-    ProcessNode(aiScene->mRootNode, glm::mat4(1.0f), loadedMeshes, outScene);
-
-	//std::string sceneCachePath = GetSceneCachePath(path);
-	SaveSceneCache(sceneCachePath, outScene, loadedMeshes);
-
-    return true;
+    ProcessNode(aiScene->mRootNode, glm::mat4(1.0f), outMeshes, outScene);
 }
 
 void ModelLoader::ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene)
