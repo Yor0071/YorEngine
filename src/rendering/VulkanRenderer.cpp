@@ -18,7 +18,7 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	device = std::make_unique<VulkanDevice>(vulkanInstance, surface);
 	
 	scene = std::make_unique<Scene>();
-	scene->Load(*device, meshBatch);
+	ModelLoader::LoadModel(MODEL_PATH, *device, meshBatch, *scene);
 
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());

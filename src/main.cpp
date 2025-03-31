@@ -47,7 +47,11 @@ int main()
 				auto& scene = renderer.GetScene();
 				auto& batch = scene.GetMeshBatch();
 
-				if (ModelLoader::LoadModel(modelPath, *renderer.GetDevice(), batch, scene))
+				scene.Clear();
+				scene.SetDevice(renderer.GetDevice());
+				scene.SetMeshBatch(&renderer.GetMeshBatch());
+
+				if (ModelLoader::LoadModel(modelPath, *renderer.GetDevice(), renderer.GetMeshBatch(), scene))
 				{
 					scene.Upload(*renderer.GetDevice());
 					std::cout << "[Main] Model loaded and uploaded to GPU\n";

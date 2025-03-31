@@ -161,6 +161,7 @@ const MeshBatch::GpuMesh& MeshBatch::GetLastUploadedMesh() const
 
 void MeshBatch::Reset()
 {
+	assert(this != nullptr);
 	allVertices.clear();
 	allIndices.clear();
 	uploaded = false;

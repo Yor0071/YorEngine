@@ -38,6 +38,7 @@ public:
 	Camera* GetCamera() { return camera.get(); }
 	Scene& GetScene() { return *scene; }
 	VulkanDevice* GetDevice() { return device.get(); }
+	MeshBatch& GetMeshBatch() { return meshBatch; }
 
 private:
 	void CreateInstance();
