@@ -1,24 +1,26 @@
 #include "VulkanCommandBuffer.h"
 
 VulkanCommandBuffer::VulkanCommandBuffer(VulkanDevice& device,
-                                         VulkanSwapChain& swapChain,
-                                         VulkanRenderPass& renderPass,
-                                         VulkanFramebuffer& framebuffer,
-                                         VulkanGraphicsPipeline& graphicsPipeline,
-                                         VkDescriptorSet descriptorSet)
-                                         : device(device),
-                                         swapChain(swapChain),
-                                         renderPass(renderPass),
-                                         framebuffer(framebuffer),
-                                         graphicsPipeline(graphicsPipeline),
-	                                     descriptorSet(descriptorSet)
+										 VulkanSwapChain& swapChain,
+										 VulkanRenderPass& renderPass,
+										 VulkanFramebuffer& framebuffer,
+										 VulkanGraphicsPipeline& graphicsPipeline,
+										 VkDescriptorSet mvpSet,             // set = 0
+										 VkDescriptorSet materialSet)		 // set = 1
+										 : device(device),
+										 swapChain(swapChain),
+										 renderPass(renderPass),
+										 framebuffer(framebuffer),
+										 graphicsPipeline(graphicsPipeline),
+										 mvpDescriptorSet(mvpSet),
+										 materialDescriptorSet(materialSet)
 {
     CreateCommandBuffers();
 }
 
 VulkanCommandBuffer::~VulkanCommandBuffer() 
 {
-	vkFreeCommandBuffers(device.GetLogicalDevice(), device.GetCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+	vkFreeCommandBuffers(device.GetLogicalDevice(), commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 	std::cout << "Command buffers destroyed" << std::endl;
 }
 
@@ -28,7 +30,11 @@ void VulkanCommandBuffer::CreateCommandBuffers()
 
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.commandPool = device.GetCommandPool();
+
+	// Use thread-local pool and store it
+	commandPool = device.GetThreadCommandPool()->GetOrCreatePoolForCurrentThread();
+	allocInfo.commandPool = commandPool;
+
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
@@ -37,7 +43,7 @@ void VulkanCommandBuffer::CreateCommandBuffers()
 		throw std::runtime_error("Failed to allocate command buffers");
 	}
 
-	std::cout << "Command buffers allocated" << std::endl;
+	std::cout << "Command buffers allocated\n";
 }
 
 void VulkanCommandBuffer::BeginRecording(uint32_t imageIndex)
@@ -72,7 +78,8 @@ void VulkanCommandBuffer::BeginRecording(uint32_t imageIndex)
 
 	vkCmdBindPipeline(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipeline());
 
-	vkCmdBindDescriptorSets(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+	VkDescriptorSet descriptorSets[] = { mvpDescriptorSet, materialDescriptorSet };
+	vkCmdBindDescriptorSets(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(), 0, 2, descriptorSets, 0, nullptr);
 }
 
 void VulkanCommandBuffer::EndRecording(uint32_t imageIndex)
@@ -85,9 +92,26 @@ void VulkanCommandBuffer::EndRecording(uint32_t imageIndex)
 	}
 }
 
-void VulkanCommandBuffer::BindPushConstants(const glm::mat4& modelMatrix)
+void VulkanCommandBuffer::BindPushConstants(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj)
 {
-	vkCmdPushConstants(commandBuffers[currentImageIndex], graphicsPipeline.GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
+	struct PushConstants
+	{
+		glm::mat4 model;
+		glm::mat4 view;
+		glm::mat4 proj;
+	} data;
+
+	data.model = model;
+	data.view = view;
+	data.proj = proj;
+
+	vkCmdPushConstants(
+		commandBuffers[currentImageIndex],
+		graphicsPipeline.GetPipelineLayout(),
+		VK_SHADER_STAGE_VERTEX_BIT,
+		0,
+		sizeof(PushConstants),
+		&data);
 }
 
 VkCommandBuffer VulkanCommandBuffer::GetCommandBuffer(uint32_t imageIndex) const

@@ -16,42 +16,48 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	CreateSurface(window);
 
 	device = std::make_unique<VulkanDevice>(vulkanInstance, surface);
-	
+
 	scene = std::make_unique<Scene>();
 	ModelLoader::LoadModel(MODEL_PATH, *device, meshBatch, *scene);
 
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
-	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
+	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass, Material::GetDescriptorSetLayoutStatic(*device));
+
 	mvpBuffer = std::make_unique<UniformBuffer<UniformBufferObject>>(device->GetLogicalDevice(), device->GetPhysicalDevice());
 
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = 1;
+	// ---------- Descriptor Pool and Set for MVP (Set 0) ----------
+	VkDescriptorPoolSize uboPoolSize{};
+	uboPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uboPoolSize.descriptorCount = 1;
 
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
-	poolInfo.maxSets = 1;
+	VkDescriptorPoolCreateInfo uboPoolInfo{};
+	uboPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	uboPoolInfo.poolSizeCount = 1;
+	uboPoolInfo.pPoolSizes = &uboPoolSize;
+	uboPoolInfo.maxSets = 1;
+	uboPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 
-	if (vkCreateDescriptorPool(device->GetLogicalDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+	if (vkCreateDescriptorPool(device->GetLogicalDevice(), &uboPoolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create descriptor pool!");
+		throw std::runtime_error("Failed to create descriptor pool for UBO!");
 	}
 
-	VkDescriptorSetLayout layouts[] = { graphicsPipeline->GetDescriptorSetLayout() };
+	// Allocate UBO descriptor set
+	VkDescriptorSetLayout uboLayout = graphicsPipeline->GetUniformBufferLayout();
+
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = descriptorPool;
 	allocInfo.descriptorSetCount = 1;
-	allocInfo.pSetLayouts = layouts;
+	allocInfo.pSetLayouts = &uboLayout;
 
-	if (vkAllocateDescriptorSets(device->GetLogicalDevice(), &allocInfo, &descriptorSet) != VK_SUCCESS)
+	if (vkAllocateDescriptorSets(device->GetLogicalDevice(), &allocInfo, &mvpDescriptorSet) != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to allocate descriptor set!");
+		throw std::runtime_error("Failed to allocate UBO descriptor set!");
 	}
 
+	// Write UBO descriptor
 	VkDescriptorBufferInfo bufferInfo{};
 	bufferInfo.buffer = mvpBuffer->GetBuffer();
 	bufferInfo.offset = 0;
@@ -59,7 +65,7 @@ void VulkanRenderer::Init(GLFWwindow* window)
 
 	VkWriteDescriptorSet descriptorWrite{};
 	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrite.dstSet = descriptorSet;
+	descriptorWrite.dstSet = mvpDescriptorSet;
 	descriptorWrite.dstBinding = 0;
 	descriptorWrite.dstArrayElement = 0;
 	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -68,8 +74,18 @@ void VulkanRenderer::Init(GLFWwindow* window)
 
 	vkUpdateDescriptorSets(device->GetLogicalDevice(), 1, &descriptorWrite, 0, nullptr);
 
-	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, descriptorSet);
+	// ---- Create Command Buffer (binds mvpDescriptorSet and per-instance material descriptor sets later) ----
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(
+		*device,
+		*device->GetSwapChain(),
+		*renderPass,
+		*framebuffer,
+		*graphicsPipeline,
+		mvpDescriptorSet, // <- This is only Set 0
+		scene->GetInstances().at(0).material->GetDescriptorSet() // <- This is Set 1
+	);
 
+	// ---------- Sync objects ----------
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -88,65 +104,89 @@ void VulkanRenderer::Init(GLFWwindow* window)
 		throw std::runtime_error("Failed to create fence!");
 	}
 
+	// ---------- Camera and Input ----------
 	float aspect = (float)device->GetSwapChain()->GetSwapChainExtent().width / (float)device->GetSwapChain()->GetSwapChainExtent().height;
-	camera = std::make_unique<Camera> (45.0f, aspect, 0.1f, 1000.0f);
+	camera = std::make_unique<Camera>(45.0f, aspect, 0.1f, 10000.0f);
+
 	inputHandler = std::make_unique<InputHandler>(window, *camera);
 	inputHandler->SetOnReloadShaders([this]() { this->ReloadShaders(); });
 }
 
 void VulkanRenderer::Cleanup()
 {
-	if (device) {
+	if (device)
+	{
+		// Ensure device isn't doing any work
 		vkDeviceWaitIdle(device->GetLogicalDevice());
 
-		if (scene) {
+		// Clear scene objects and destroy uploaded mesh buffers
+		if (scene)
+		{
 			scene->Clear();
+			scene.reset();
 		}
 
 		meshBatch.Destroy(device->GetLogicalDevice());
+		ModelCacheManager::materialCache.clear();
 
+		// Destroy command buffer, pipeline, etc.
 		commandBuffer.reset();
 		mvpBuffer.reset();
 		graphicsPipeline.reset();
 		framebuffer.reset();
 		renderPass.reset();
 
+		// Destroy the descriptor pool used for the MVP uniform buffer
 		if (descriptorPool != VK_NULL_HANDLE)
 		{
+			if (mvpDescriptorSet != VK_NULL_HANDLE)
+			{
+				vkFreeDescriptorSets(device->GetLogicalDevice(), descriptorPool, 1, &mvpDescriptorSet);
+				mvpDescriptorSet = VK_NULL_HANDLE;
+			}
+
 			vkDestroyDescriptorPool(device->GetLogicalDevice(), descriptorPool, nullptr);
 			descriptorPool = VK_NULL_HANDLE;
 		}
 
-		if (imageAvailableSemaphore) {
+		// Destroy sync objects
+		if (imageAvailableSemaphore)
+		{
 			vkDestroySemaphore(device->GetLogicalDevice(), imageAvailableSemaphore, nullptr);
 			imageAvailableSemaphore = VK_NULL_HANDLE;
 		}
 
-		if (renderFinishedSemaphore) {
+		if (renderFinishedSemaphore)
+		{
 			vkDestroySemaphore(device->GetLogicalDevice(), renderFinishedSemaphore, nullptr);
 			renderFinishedSemaphore = VK_NULL_HANDLE;
 		}
 
-		if (inFlightFence) {
+		if (inFlightFence)
+		{
 			vkDestroyFence(device->GetLogicalDevice(), inFlightFence, nullptr);
 			inFlightFence = VK_NULL_HANDLE;
 		}
 
+		// Destroy the Vulkan device
 		device.reset();
 	}
 
+	// Destroy the surface (used with swapchain)
 	if (surface != VK_NULL_HANDLE)
 	{
 		vkDestroySurfaceKHR(vulkanInstance, surface, nullptr);
 		surface = VK_NULL_HANDLE;
 	}
 
+	// Finally destroy the Vulkan instance
 	if (vulkanInstance != VK_NULL_HANDLE)
 	{
 		vkDestroyInstance(vulkanInstance, nullptr);
 		vulkanInstance = VK_NULL_HANDLE;
 	}
 }
+
 
 void VulkanRenderer::CreateInstance()
 {
@@ -190,6 +230,24 @@ void VulkanRenderer::CreateSurface(GLFWwindow* window)
 	std::cout << "Window surface created" << std::endl;
 }
 
+void VulkanRenderer::RebuildCommandBuffer() {
+	if (!scene || scene->GetInstances().empty())
+		return;
+
+	commandBuffer.reset();
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(
+		*device,
+		*device->GetSwapChain(),
+		*renderPass,
+		*framebuffer,
+		*graphicsPipeline,
+		mvpDescriptorSet,
+		scene->GetInstances().at(0).material->GetDescriptorSet() // assumes set 1 for materials
+	);
+
+	commandBufferDirty = false;
+}
+
 void VulkanRenderer::DrawFrame()
 {
 	vkWaitForFences(device->GetLogicalDevice(), 1, &inFlightFence, VK_TRUE, UINT64_MAX);
@@ -209,7 +267,23 @@ void VulkanRenderer::DrawFrame()
 
 	for (const auto& instance : scene->GetInstances())
 	{
-		commandBuffer->BindPushConstants(instance.transform);
+		VkDescriptorSet sets[] = {
+			mvpDescriptorSet, // from UniformBuffer
+			instance.material->GetDescriptorSet()
+		};
+
+		vkCmdBindDescriptorSets(
+			commandBuffer->GetCommandBuffer(imageIndex),
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			graphicsPipeline->GetPipelineLayout(),
+			0, 2, sets, 0, nullptr
+		);
+
+		commandBuffer->BindPushConstants(
+			instance.transform,
+			camera->GetViewMatrix(),
+			camera->GetProjectionMatrix()
+		);
 		instance.mesh->Bind(commandBuffer->GetCommandBuffer(imageIndex));
 		instance.mesh->Draw(commandBuffer->GetCommandBuffer(imageIndex));
 	}
@@ -277,8 +351,15 @@ void VulkanRenderer::ReCreateSwapChain(GLFWwindow* window)
 	device->RecreateSwapChain();
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
-	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
-	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, descriptorSet);
+
+	for (auto& instance : scene->GetInstances()) {
+		if (instance.material) {
+			instance.material->RecreateDescriptorSetLayout(device->GetLogicalDevice());
+		}
+	}
+
+	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass, Material::GetDescriptorSetLayoutStatic(*device));
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, mvpDescriptorSet, scene->GetInstances().at(0).material->GetDescriptorSet());
 
 	float newAspect = (float)device->GetSwapChain()->GetSwapChainExtent().width / (float)device->GetSwapChain()->GetSwapChainExtent().height;
 	if (camera)
@@ -296,8 +377,8 @@ void VulkanRenderer::ReloadShaders()
 	graphicsPipeline.reset();
 	commandBuffer.reset();
 
-	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass);
-	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, descriptorSet);
+	graphicsPipeline = std::make_unique<VulkanGraphicsPipeline>(*device, *device->GetSwapChain(), *renderPass, Material::GetDescriptorSetLayoutStatic(*device));
+	commandBuffer = std::make_unique<VulkanCommandBuffer>(*device, *device->GetSwapChain(), *renderPass, *framebuffer, *graphicsPipeline, mvpDescriptorSet, scene->GetInstances().at(0).material->GetDescriptorSet());
 
 	std::cout << "[INFO] Shaders reloaded" << std::endl;
 }
@@ -326,6 +407,8 @@ void VulkanRenderer::Update(float deltaTime)
 			scene->SetDevice(device.get());
 			scene->SetMeshBatch(&meshBatch);
 			scene->Upload(*device);
+
+			RebuildCommandBuffer();
 		}
 		else
 		{

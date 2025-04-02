@@ -37,6 +37,7 @@ public:
 	void UpdateUniformBuffer();
 	void Update(float deltaTime);
 	void LoadModelAsync(const std::string& path);
+	void MarkCommandBufferDirty() { commandBufferDirty = true; }
 	Camera* GetCamera() { return camera.get(); }
 	Scene& GetScene() { return *scene; }
 	VulkanDevice* GetDevice() { return device.get(); }
@@ -45,6 +46,7 @@ public:
 private:
 	void CreateInstance();
 	void CreateSurface(GLFWwindow* window);
+	void RebuildCommandBuffer();
 	std::vector<const char*> GetRequiredExtensions();
 
 	std::vector<Vertex> vertices;
@@ -59,6 +61,8 @@ private:
 
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet descriptorSet;
+
+	VkDescriptorSet mvpDescriptorSet = VK_NULL_HANDLE;
 	
 	std::unique_ptr<VulkanDevice> device;
 	std::unique_ptr<VulkanRenderPass> renderPass;
@@ -72,6 +76,8 @@ private:
 
 	MeshBatch meshBatch;
 	AsyncModelLoader asyncLoader;
+
+	bool commandBufferDirty = false;
 };
 
 #endif // !VULKAN_RENDERER_H

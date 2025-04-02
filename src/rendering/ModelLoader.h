@@ -34,8 +34,8 @@ public:
 	};
 
 	static bool LoadModel(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene);
-	static void ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene);
-
+	static void ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene, VulkanDevice& device, const aiScene* aiScene);
+	static std::shared_ptr<Material> CreateSafeMaterial(VulkanDevice& device, const std::string& path);
 
 private:
 	static glm::mat4 ConvertMatrix(const aiMatrix4x4& matrix);

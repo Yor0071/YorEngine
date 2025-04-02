@@ -1,5 +1,7 @@
 #include "ModelCacheManager.h"
 
+std::unordered_map<std::string, std::shared_ptr<Material>> ModelCacheManager::materialCache;
+
 namespace fs = std::filesystem;
 
 std::string ModelCacheManager::GetMeshCachePath(const std::string& modelPath, unsigned int meshIndex)
@@ -112,7 +114,27 @@ bool ModelCacheManager::LoadSceneCache(const std::string& path, const std::vecto
             transform[i / 4][i % 4] = mat[i];
         }
 
-        outScene.AddInstance(transform, meshes[meshIndex], meshIndex);
+        std::string texturePath = entry.value("texture", "../assets/models/Main.1_Sponza/textures/default.png");
+
+        std::shared_ptr<Material> material;
+
+        auto it = materialCache.find(texturePath);
+        if (it != materialCache.end()) {
+            material = it->second;
+        }
+        else {
+            try {
+                material = std::make_shared<Material>(outScene.GetDevice(), texturePath);
+                materialCache[texturePath] = material;
+            }
+            catch (...) {
+                std::cerr << "[Material] Failed to load: " << texturePath << ", using fallback.\n";
+                material = std::make_shared<Material>(outScene.GetDevice(), "../assets/models/Main.1_Sponza/textures/default.png");
+                materialCache[texturePath] = material;
+            }
+        }
+
+        outScene.AddInstance(transform, meshes[meshIndex], material, meshIndex);
     }
 
     return true;
@@ -125,15 +147,21 @@ void ModelCacheManager::SaveSceneCache(const std::string& path, const Scene& sce
     for (const auto& inst : scene.GetInstances()) {
         nlohmann::json entry;
         entry["meshIndex"] = inst.meshIndex;
+
         std::vector<float> mat(16);
         const glm::mat4& t = inst.transform;
         for (int i = 0; i < 16; ++i) {
             mat[i] = t[i / 4][i % 4];
         }
         entry["transform"] = mat;
+
+        if (inst.material) {
+            entry["texture"] = inst.material->GetTexturePath();
+        }
+
         j.push_back(entry);
     }
 
     std::ofstream out(path);
-    out << j.dump(2);
+    out << j.dump(2); // Pretty-printed
 }

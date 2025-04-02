@@ -17,8 +17,8 @@ void InputHandler::Update(float deltaTime)
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) forward -= 1.0f;
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) right += 1.0f;
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) right -= 1.0f;
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) up += -1.0f;
-	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) up -= -1.0f;
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) up += 1.0f;
+	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) up -= 1.0f;
 
     camera.ProcessKeyboard(forward * deltaTime, right * deltaTime, up * deltaTime);
 
@@ -33,7 +33,7 @@ void InputHandler::Update(float deltaTime)
     }
 
     float xoffset = static_cast<float>(xpos - lastMouseX);
-    float yoffset = static_cast<float>(ypos - lastMouseY);
+    float yoffset = static_cast<float>(lastMouseY - ypos);
 
     lastMouseX = xpos;
     lastMouseY = ypos;
