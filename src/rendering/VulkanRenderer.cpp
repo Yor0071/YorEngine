@@ -132,6 +132,7 @@ void VulkanRenderer::Cleanup()
 		meshBatch.Destroy(device->GetLogicalDevice());
 
 		// Destroy material descriptor pool
+		Material::DestroySamplerCache(*device);
 		Material::DestroyDescriptorSetLayoutStatic(*device);
 		descriptorPools.Destroy();
 

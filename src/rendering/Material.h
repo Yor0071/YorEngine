@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
+#include <mutex>
 
 #include "VulkanDevice.h"
 
@@ -24,6 +25,7 @@ public:
 	const std::string& GetTexturePath() const { return texturePath; }
 	void RecreateDescriptorSetLayout(VkDevice device);
 	static void DestroyDescriptorSetLayoutStatic(VulkanDevice& device);
+	static void DestroySamplerCache(VulkanDevice& device);
 
 private:
 	void LoadTexture(const std::string& path);

@@ -3,7 +3,38 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "../third_party/stb/stb_image.h"
 
+static std::mutex g_samplerCacheMutex;
 static VkDescriptorSetLayout g_materialSetLayout = VK_NULL_HANDLE;
+
+struct SamplerCacheKey
+{
+	float maxAnisotropy;
+	VkFilter minFilter;
+	VkFilter magFilter;
+	VkSamplerAddressMode addressModeU;
+	VkSamplerAddressMode addressModeV;
+	VkSamplerAddressMode addressModeW;
+
+	bool operator==(const SamplerCacheKey& other) const
+	{
+		return std::memcmp(this, &other, sizeof(SamplerCacheKey) == 0);
+	}
+};
+
+struct SamplerCacheKeyHash
+{
+	size_t operator()(const SamplerCacheKey& k) const
+	{
+		return std::hash<float>()(k.maxAnisotropy) ^
+			std::hash<int>()(k.minFilter) ^
+			std::hash<int>()(k.magFilter) ^
+			std::hash<int>()(k.addressModeU) ^
+			std::hash<int>()(k.addressModeV) ^
+			std::hash<int>()(k.addressModeW);
+	}
+};
+
+static std::unordered_map<SamplerCacheKey, VkSampler, SamplerCacheKeyHash> g_samplerCache;
 
 Material::Material(VulkanDevice& device, const std::string& texturePath, VkDescriptorPool sharedPool) 
 	: device(device), texturePath(texturePath), externalDescriptorPool(sharedPool)
@@ -27,9 +58,6 @@ Material::~Material()
 		vkFreeDescriptorSets(logicalDevice, externalDescriptorPool, 1, &descriptorSet);
 		descriptorSet = VK_NULL_HANDLE;
 	}
-
-	if (textureSampler != VK_NULL_HANDLE)
-		vkDestroySampler(logicalDevice, textureSampler, nullptr);
 
 	if (textureImageView != VK_NULL_HANDLE)
 		vkDestroyImageView(logicalDevice, textureImageView, nullptr);
@@ -61,6 +89,14 @@ void Material::DestroyDescriptorSetLayoutStatic(VulkanDevice& device)
 		vkDestroyDescriptorSetLayout(device.GetLogicalDevice(), g_materialSetLayout, nullptr);
 		g_materialSetLayout = VK_NULL_HANDLE;
 	}
+}
+
+void Material::DestroySamplerCache(VulkanDevice& device)
+{
+	std::lock_guard<std::mutex> lock(g_samplerCacheMutex);
+	for (auto& kv : g_samplerCache)
+		vkDestroySampler(device.GetLogicalDevice(), kv.second, nullptr);
+	g_samplerCache.clear();
 }
 
 VkDescriptorSetLayout Material::GetDescriptorSetLayoutStatic(VulkanDevice& device)
@@ -174,23 +210,50 @@ void Material::CreateTextureImageView()
 
 void Material::CreateTextureSampler()
 {
-	VkSamplerCreateInfo samplerInfo{};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.magFilter = VK_FILTER_LINEAR;
-	samplerInfo.minFilter = VK_FILTER_LINEAR;
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.anisotropyEnable = VK_TRUE;
-	samplerInfo.maxAnisotropy = 16;
-	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	SamplerCacheKey key{};
+	key.maxAnisotropy = 16.0f;
+	key.minFilter = VK_FILTER_LINEAR;
+	key.magFilter = VK_FILTER_LINEAR;
+	key.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	key.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	key.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 
-	if (vkCreateSampler(device.GetLogicalDevice(), &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+	// Fast path: try reusing an existing sampler from the cache
+	{
+		std::lock_guard<std::mutex> lock(g_samplerCacheMutex);
+		auto it = g_samplerCache.find(key);
+		if (it != g_samplerCache.end()) {
+			textureSampler = it->second;
+			return;
+		}
+	}
+
+	// Slow path: create a new sampler
+	VkPhysicalDeviceProperties props{};
+	vkGetPhysicalDeviceProperties(device.GetPhysicalDevice(), &props);
+
+	VkSamplerCreateInfo info{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+	info.magFilter = key.magFilter;
+	info.minFilter = key.minFilter;
+	info.addressModeU = key.addressModeU;
+	info.addressModeV = key.addressModeV;
+	info.addressModeW = key.addressModeW;
+	info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	info.anisotropyEnable = VK_TRUE;
+	info.maxAnisotropy = std::min(key.maxAnisotropy, props.limits.maxSamplerAnisotropy);
+	info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	info.unnormalizedCoordinates = VK_FALSE;
+	info.compareEnable = VK_FALSE;
+	info.compareOp = VK_COMPARE_OP_ALWAYS;
+
+	if (vkCreateSampler(device.GetLogicalDevice(), &info, nullptr, &textureSampler) != VK_SUCCESS)
 		throw std::runtime_error("[Material] Failed to create texture sampler.");
+
+	// Publish to cache
+	{
+		std::lock_guard<std::mutex> lock(g_samplerCacheMutex);
+		g_samplerCache[key] = textureSampler;
+	}
 }
 
 void Material::CreateDescriptorSetLayout()
