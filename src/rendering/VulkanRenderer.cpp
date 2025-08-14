@@ -17,8 +17,10 @@ void VulkanRenderer::Init(GLFWwindow* window)
 
 	device = std::make_unique<VulkanDevice>(vulkanInstance, surface);
 
+	descriptorPools.Init(device->GetLogicalDevice());
+
 	scene = std::make_unique<Scene>();
-	ModelLoader::LoadModel(MODEL_PATH, *device, meshBatch, *scene);
+	ModelLoader::LoadModel(MODEL_PATH, *device, meshBatch, *scene, descriptorPools.GetMaterialPool());
 
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
@@ -126,15 +128,12 @@ void VulkanRenderer::Cleanup()
 			scene.reset();
 		}
 
-		meshBatch.Destroy(device->GetLogicalDevice());
 		ModelCacheManager::materialCache.clear();
+		meshBatch.Destroy(device->GetLogicalDevice());
 
-		// Destroy command buffer, pipeline, etc.
-		commandBuffer.reset();
-		mvpBuffer.reset();
-		graphicsPipeline.reset();
-		framebuffer.reset();
-		renderPass.reset();
+		// Destroy material descriptor pool
+		Material::DestroyDescriptorSetLayoutStatic(*device);
+		descriptorPools.Destroy();
 
 		// Destroy the descriptor pool used for the MVP uniform buffer
 		if (descriptorPool != VK_NULL_HANDLE)
@@ -148,6 +147,13 @@ void VulkanRenderer::Cleanup()
 			vkDestroyDescriptorPool(device->GetLogicalDevice(), descriptorPool, nullptr);
 			descriptorPool = VK_NULL_HANDLE;
 		}
+
+		// Destroy command buffer, pipeline, etc.
+		commandBuffer.reset();
+		mvpBuffer.reset();
+		graphicsPipeline.reset();
+		framebuffer.reset();
+		renderPass.reset();
 
 		// Destroy sync objects
 		if (imageAvailableSemaphore)
@@ -443,5 +449,5 @@ std::vector<const char*> VulkanRenderer::GetRequiredExtensions()
 
 void VulkanRenderer::LoadModelAsync(const std::string& path)
 {
-	asyncLoader.RequestLoad(path, *device);
+	asyncLoader.RequestLoad(path, *device, descriptorPools.GetMaterialPool());
 }

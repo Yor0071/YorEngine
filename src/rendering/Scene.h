@@ -27,12 +27,15 @@ public:
 	
 	void SetMeshBatch(MeshBatch* batch) { meshBatch = batch; }
 	void SetDevice(VulkanDevice* device) { this->device = device; }
+	void SetMaterialPool(VkDescriptorPool pool) { materialPool = pool; }
+	VkDescriptorPool GetMaterialPool() const { return materialPool; }
 
 	void Clear();
 private:
 	std::vector<ModelInstance> instances;
 	MeshBatch* meshBatch = nullptr;
 	VulkanDevice* device = nullptr;
+	VkDescriptorPool materialPool = VK_NULL_HANDLE;
 };
 
 #endif // !SCENE_H

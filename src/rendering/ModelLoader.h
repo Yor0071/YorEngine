@@ -33,15 +33,15 @@ public:
 		glm::mat4 transform;
 	};
 
-	static bool LoadModel(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene);
-	static void ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene, VulkanDevice& device, const aiScene* aiScene);
-	static std::shared_ptr<Material> CreateSafeMaterial(VulkanDevice& device, const std::string& path);
+	static bool LoadModel(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene, VkDescriptorPool materialPool);
+	static void ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene, VulkanDevice& device, const aiScene* aiScene, VkDescriptorPool materialPool);
+	static std::shared_ptr<Material> CreateSafeMaterial(VulkanDevice& device, const std::string& path, VkDescriptorPool materialPool);
 
 private:
 	static glm::mat4 ConvertMatrix(const aiMatrix4x4& matrix);
 
 	static bool TryLoadCachedMeshes(const std::string& path, VulkanDevice& device, MeshBatch& batch, std::vector<std::shared_ptr<Mesh>>& outMeshes);
-	static void LoadWithAssimp(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene, std::vector<std::shared_ptr<Mesh>>& outMeshes);
+	static void LoadWithAssimp(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene, std::vector<std::shared_ptr<Mesh>>& outMeshes, VkDescriptorPool materialPool);
 	
 	static std::unordered_map<unsigned int, std::shared_ptr<Mesh>> meshCache;
 };

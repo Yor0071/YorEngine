@@ -124,12 +124,12 @@ bool ModelCacheManager::LoadSceneCache(const std::string& path, const std::vecto
         }
         else {
             try {
-                material = std::make_shared<Material>(outScene.GetDevice(), texturePath);
+                material = std::make_shared<Material>(outScene.GetDevice(), texturePath, outScene.GetMaterialPool());
                 materialCache[texturePath] = material;
             }
             catch (...) {
                 std::cerr << "[Material] Failed to load: " << texturePath << ", using fallback.\n";
-                material = std::make_shared<Material>(outScene.GetDevice(), "../assets/models/Main.1_Sponza/textures/default.png");
+                material = std::make_shared<Material>(outScene.GetDevice(), "../assets/models/Main.1_Sponza/textures/default.png", outScene.GetMaterialPool());
                 materialCache[texturePath] = material;
             }
         }

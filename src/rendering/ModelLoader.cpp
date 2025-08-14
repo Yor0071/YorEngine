@@ -5,10 +5,11 @@
 
 namespace fs = std::filesystem;
 
-bool ModelLoader::LoadModel(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene)
+bool ModelLoader::LoadModel(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene, VkDescriptorPool materialPool)
 {
     outScene.Clear();
 	outScene.SetDevice(&device);
+	outScene.SetMaterialPool(materialPool);
     std::vector<std::shared_ptr<Mesh>> loadedMeshes;
 
     std::string sceneCachePath = ModelCacheManager::GetSceneCachePath(path);
@@ -26,7 +27,7 @@ bool ModelLoader::LoadModel(const std::string& path, VulkanDevice& device, MeshB
         }
     }
 
-    LoadWithAssimp(path, device, batch, outScene, loadedMeshes);
+    LoadWithAssimp(path, device, batch, outScene, loadedMeshes, materialPool);
     ModelCacheManager::SaveSceneCache(sceneCachePath, outScene, loadedMeshes);
     return true;
 }
@@ -66,7 +67,7 @@ bool ModelLoader::TryLoadCachedMeshes(const std::string& path, VulkanDevice& dev
     return !outMeshes.empty();
 }
 
-void ModelLoader::LoadWithAssimp(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene, std::vector<std::shared_ptr<Mesh>>& outMeshes)
+void ModelLoader::LoadWithAssimp(const std::string& path, VulkanDevice& device, MeshBatch& batch, Scene& outScene, std::vector<std::shared_ptr<Mesh>>& outMeshes, VkDescriptorPool materialPool)
 {
 	Assimp::Importer importer;
 	auto start = std::chrono::high_resolution_clock::now();
@@ -145,10 +146,10 @@ void ModelLoader::LoadWithAssimp(const std::string& path, VulkanDevice& device, 
 		outMeshes.push_back(meshPtr);
 	}
 
-	ProcessNode(aiScene->mRootNode, glm::mat4(1.0f), outMeshes, outScene, device, aiScene);
+	ProcessNode(aiScene->mRootNode, glm::mat4(1.0f), outMeshes, outScene, device, aiScene, materialPool);
 }
 
-void ModelLoader::ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene, VulkanDevice& device, const aiScene* aiScene)
+void ModelLoader::ProcessNode(aiNode* node, const glm::mat4& parentTransform, const std::vector<std::shared_ptr<Mesh>>& loadedMeshes, Scene& outScene, VulkanDevice& device, const aiScene* aiScene, VkDescriptorPool materialPool)
 {
 	glm::mat4 transform = parentTransform * ConvertMatrix(node->mTransformation);
 
@@ -179,32 +180,32 @@ void ModelLoader::ProcessNode(aiNode* node, const glm::mat4& parentTransform, co
 				material = it->second;
 			}
 			else {
-				material = CreateSafeMaterial(device, texPathStr);
+				material = CreateSafeMaterial(device, texPathStr, materialPool);
 				ModelCacheManager::materialCache[texPathStr] = material;
 			}
 		}
 
 		// Fallback if material still not assigned
 		if (!material) {
-			material = CreateSafeMaterial(device, "../assets/models/Main.1_Sponza/textures/default.png");
+			material = CreateSafeMaterial(device, "../assets/models/Main.1_Sponza/textures/default.png", materialPool);
 		}
 
 		outScene.AddInstance(transform, loadedMeshes[meshIndex], material, meshIndex);
 	}
 
 	for (unsigned int i = 0; i < node->mNumChildren; ++i) {
-		ProcessNode(node->mChildren[i], transform, loadedMeshes, outScene, device, aiScene);
+		ProcessNode(node->mChildren[i], transform, loadedMeshes, outScene, device, aiScene, materialPool);
 	}
 }
 
-std::shared_ptr<Material> ModelLoader::CreateSafeMaterial(VulkanDevice& device, const std::string& path)
+std::shared_ptr<Material> ModelLoader::CreateSafeMaterial(VulkanDevice& device, const std::string& path, VkDescriptorPool materialPool)
 {
 	try {
-		return std::make_shared<Material>(device, path);
+		return std::make_shared<Material>(device, path, materialPool);
 	}
 	catch (...) {
 		std::cerr << "[Material] Failed to load: " << path << ", using fallback.\n";
-		return std::make_shared<Material>(device, "../assets/models/Main.1_Sponza/textures/default.png");
+		return std::make_shared<Material>(device, "../assets/models/Main.1_Sponza/textures/default.png", materialPool);
 	}
 }
 

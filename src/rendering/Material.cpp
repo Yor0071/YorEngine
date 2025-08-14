@@ -3,70 +3,29 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "../third_party/stb/stb_image.h"
 
-Material::Material(VulkanDevice& device, const std::string& texturePath) : device(device), texturePath(texturePath)
+static VkDescriptorSetLayout g_materialSetLayout = VK_NULL_HANDLE;
+
+Material::Material(VulkanDevice& device, const std::string& texturePath, VkDescriptorPool sharedPool) 
+	: device(device), texturePath(texturePath), externalDescriptorPool(sharedPool)
 {
+	assert(externalDescriptorPool != VK_NULL_HANDLE && "Material requires a valid shared descriptor pool");
+
 	LoadTexture(texturePath);
 	CreateTextureImageView();
 	CreateTextureSampler();
 	CreateDescriptorSetLayout();
 
-	// Create descriptor pool for material textures (1 combined image sampler)
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSize.descriptorCount = 1;
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
-	poolInfo.maxSets = 1;
-	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-
-	if (vkCreateDescriptorPool(device.GetLogicalDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
-		throw std::runtime_error("[Material] Failed to create descriptor pool.");
-
-	// Allocate descriptor set
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = 1;
-	allocInfo.pSetLayouts = &descriptorSetLayout;
-
-	if (vkAllocateDescriptorSets(device.GetLogicalDevice(), &allocInfo, &descriptorSet) != VK_SUCCESS)
-		throw std::runtime_error("[Material] Failed to allocate descriptor set.");
-
-	// Bind sampler and image view
-	VkDescriptorImageInfo imageInfo{};
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = textureImageView;
-	imageInfo.sampler = textureSampler;
-
-	VkWriteDescriptorSet descriptorWrite{};
-	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrite.dstSet = descriptorSet;
-	descriptorWrite.dstBinding = 0;
-	descriptorWrite.dstArrayElement = 0;
-	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorWrite.descriptorCount = 1;
-	descriptorWrite.pImageInfo = &imageInfo;
-
-	vkUpdateDescriptorSets(device.GetLogicalDevice(), 1, &descriptorWrite, 0, nullptr);
+	AllocateAndWriteDescriptorSet();
 }
 
 Material::~Material()
 {
 	VkDevice logicalDevice = device.GetLogicalDevice();
 
-	if (descriptorSet != VK_NULL_HANDLE && descriptorPool != VK_NULL_HANDLE)
+	if (descriptorSet != VK_NULL_HANDLE && externalDescriptorPool != VK_NULL_HANDLE)
 	{
-		vkFreeDescriptorSets(logicalDevice, descriptorPool, 1, &descriptorSet);
+		vkFreeDescriptorSets(logicalDevice, externalDescriptorPool, 1, &descriptorSet);
 		descriptorSet = VK_NULL_HANDLE;
-	}
-
-	if (descriptorPool != VK_NULL_HANDLE)
-	{
-		vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
-		descriptorPool = VK_NULL_HANDLE;
 	}
 
 	if (textureSampler != VK_NULL_HANDLE)
@@ -81,46 +40,32 @@ Material::~Material()
 	if (textureImageMemory != VK_NULL_HANDLE)
 		vkFreeMemory(logicalDevice, textureImageMemory, nullptr);
 
-	if (descriptorSetLayout != VK_NULL_HANDLE)
-		vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
+	descriptorSetLayout = VK_NULL_HANDLE;
 }
 
 void Material::RecreateDescriptorSetLayout(VkDevice device)
 {
-	if (descriptorSet != VK_NULL_HANDLE && descriptorPool != VK_NULL_HANDLE) {
-		vkFreeDescriptorSets(device, descriptorPool, 1, &descriptorSet);
+	if (descriptorSet != VK_NULL_HANDLE && externalDescriptorPool != VK_NULL_HANDLE) {
+		vkFreeDescriptorSets(device, externalDescriptorPool, 1, &descriptorSet);
 		descriptorSet = VK_NULL_HANDLE;
 	}
-
-	if (descriptorPool != VK_NULL_HANDLE) {
-		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-		descriptorPool = VK_NULL_HANDLE;
-	}
-
-	// Create descriptor pool again
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSize.descriptorCount = 1;
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
-	poolInfo.maxSets = 1;
-	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-
-	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
-		throw std::runtime_error("[Material] Failed to recreate descriptor pool.");
 
 	CreateDescriptorSetLayout();
 	AllocateAndWriteDescriptorSet();
 }
 
+void Material::DestroyDescriptorSetLayoutStatic(VulkanDevice& device)
+{
+	if (g_materialSetLayout != VK_NULL_HANDLE)
+	{
+		vkDestroyDescriptorSetLayout(device.GetLogicalDevice(), g_materialSetLayout, nullptr);
+		g_materialSetLayout = VK_NULL_HANDLE;
+	}
+}
+
 VkDescriptorSetLayout Material::GetDescriptorSetLayoutStatic(VulkanDevice& device)
 {
-	static VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-
-	if (layout == VK_NULL_HANDLE)
+	if (g_materialSetLayout == VK_NULL_HANDLE)
 	{
 		VkDescriptorSetLayoutBinding samplerLayoutBinding{};
 		samplerLayoutBinding.binding = 0;
@@ -133,11 +78,10 @@ VkDescriptorSetLayout Material::GetDescriptorSetLayoutStatic(VulkanDevice& devic
 		layoutInfo.bindingCount = 1;
 		layoutInfo.pBindings = &samplerLayoutBinding;
 
-		if (vkCreateDescriptorSetLayout(device.GetLogicalDevice(), &layoutInfo, nullptr, &layout) != VK_SUCCESS)
+		if (vkCreateDescriptorSetLayout(device.GetLogicalDevice(), &layoutInfo, nullptr, &g_materialSetLayout) != VK_SUCCESS)
 			throw std::runtime_error("[Material] Failed to create static descriptor set layout.");
 	}
-
-	return layout;
+	return g_materialSetLayout;
 }
 
 void Material::LoadTexture(const std::string& path)
@@ -251,28 +195,17 @@ void Material::CreateTextureSampler()
 
 void Material::CreateDescriptorSetLayout()
 {
-	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-	samplerLayoutBinding.binding = 0;
-	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBinding.descriptorCount = 1;
-	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	samplerLayoutBinding.pImmutableSamplers = nullptr;
-
-	VkDescriptorSetLayoutCreateInfo layoutInfo{};
-	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutInfo.bindingCount = 1;
-	layoutInfo.pBindings = &samplerLayoutBinding;
-
-	if (vkCreateDescriptorSetLayout(device.GetLogicalDevice(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
-		throw std::runtime_error("[Material] Failed to create descriptor set layout.");
+	descriptorSetLayout = Material::GetDescriptorSetLayoutStatic(device);
 }
 
 void Material::AllocateAndWriteDescriptorSet()
 {
+	assert(externalDescriptorPool != VK_NULL_HANDLE && "Material needs a shared descriptor pool");
+
 	// Allocate descriptor set
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorPool = externalDescriptorPool;
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &descriptorSetLayout;
 

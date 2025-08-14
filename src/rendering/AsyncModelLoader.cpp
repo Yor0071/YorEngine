@@ -1,7 +1,8 @@
 #include "AsyncModelLoader.h"
 
-void AsyncModelLoader::RequestLoad(const std::string& path, VulkanDevice& device)
+void AsyncModelLoader::RequestLoad(const std::string& path, VulkanDevice& device, VkDescriptorPool materialPool)
 {
+	materialPoolCaptured = materialPool;
 	if (loading) return;
 
 	loading = true;
@@ -47,7 +48,7 @@ void AsyncModelLoader::LoadTask(std::string path, VulkanDevice* device)
 
 	tempBatch.SetCustomCommandPool(threadCommandPool); // You’ll need to support this in MeshBatch
 
-	bool success = ModelLoader::LoadModel(path, *device, tempBatch, tempScene);
+	bool success = ModelLoader::LoadModel(path, *device, tempBatch, tempScene, materialPoolCaptured);
 
 	vkDestroyCommandPool(device->GetLogicalDevice(), threadCommandPool, nullptr);
 

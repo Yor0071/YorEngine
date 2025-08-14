@@ -24,7 +24,7 @@ public:
 
 	AsyncModelLoader() = default;
 
-	void RequestLoad(const std::string& path, VulkanDevice& device);
+	void RequestLoad(const std::string& path, VulkanDevice& device, VkDescriptorPool materialPool);
 	bool isLoading() const;
 	std::optional<Result> GetResult();
 
@@ -35,6 +35,8 @@ private:
 	std::mutex resultMutex;
 	std::optional<Result> result;
 	std::thread worker;
+
+	VkDescriptorPool materialPoolCaptured = VK_NULL_HANDLE;
 };
 
 #endif // !ASYNC_MODEL_LOADER_H

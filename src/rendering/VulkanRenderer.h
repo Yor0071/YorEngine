@@ -18,6 +18,8 @@
 #include "Scene.h"
 #include "MeshBatch.h"
 #include "AsyncModelLoader.h"
+#include "DescriptorPools.h"
+#include "Material.h"
 
 #include "../core/Camera.h"
 
@@ -42,6 +44,7 @@ public:
 	Scene& GetScene() { return *scene; }
 	VulkanDevice* GetDevice() { return device.get(); }
 	MeshBatch& GetMeshBatch() { return meshBatch; }
+	VkDescriptorPool GetDescriptorPool() const { return descriptorPools.GetMaterialPool(); }
 
 private:
 	void CreateInstance();
@@ -58,6 +61,8 @@ private:
 	VkSemaphore imageAvailableSemaphore;
 	VkSemaphore renderFinishedSemaphore;
 	VkFence inFlightFence;
+
+	DescriptorPools descriptorPools;
 
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet descriptorSet;
