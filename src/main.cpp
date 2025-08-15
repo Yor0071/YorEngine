@@ -3,10 +3,17 @@
 #include "rendering/ModelLoader.h"
 #include "rendering/Vertex.h"
 #include "input/InputHandler.h"
+#include "ecs/TerrainComponent.h"
+#include "utils/PerlinNoise.h"
+#include "rendering/Mesh.h"
+#include "rendering/MeshBatch.h"
+#include "rendering/VulkanDevice.h"
 #include <iostream>
 #include <filesystem>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/glm.hpp>
+
+std::unique_ptr<Mesh> terrainMesh;
 
 int main()
 {
@@ -16,6 +23,8 @@ int main()
 
 		VulkanRenderer renderer;
 		renderer.Init(window.GetWindow());
+
+		renderer.InitTerrain();
 
 		float lastTime = glfwGetTime();
 

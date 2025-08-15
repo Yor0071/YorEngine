@@ -20,10 +20,14 @@
 #include "AsyncModelLoader.h"
 #include "DescriptorPools.h"
 #include "Material.h"
+#include "Mesh.h"
 
 #include "../core/Camera.h"
 
 #include "../input/InputHandler.h"
+
+#include "../utils/PerlinNoise.h"
+#include "../ecs/TerrainComponent.h"
 
 class VulkanRenderer
 {
@@ -40,6 +44,7 @@ public:
 	void Update(float deltaTime);
 	void LoadModelAsync(const std::string& path);
 	void MarkCommandBufferDirty() { commandBufferDirty = true; }
+	void InitTerrain();
 	Camera* GetCamera() { return camera.get(); }
 	Scene& GetScene() { return *scene; }
 	VulkanDevice* GetDevice() { return device.get(); }
@@ -78,6 +83,7 @@ private:
 	std::unique_ptr<Camera> camera;
 	std::unique_ptr<InputHandler> inputHandler;
 	std::shared_ptr<Scene> scene;
+	std::unique_ptr<Mesh> terrainMesh;
 
 	MeshBatch meshBatch;
 	AsyncModelLoader asyncLoader;

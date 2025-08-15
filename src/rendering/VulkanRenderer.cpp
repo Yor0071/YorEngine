@@ -3,6 +3,14 @@
 #include <stdexcept>
 #include "Vertex.h"
 
+static inline glm::mat4 MakeTerrainModel(float yDown, float uniformScale = 1.0f)
+{
+	glm::mat4 m(1.0f);
+	m = glm::translate(m, glm::vec3(0.0f, -yDown, 0.0f));
+	m = glm::scale(m, glm::vec3(uniformScale, uniformScale, uniformScale));
+	return m;
+};
+
 VulkanRenderer::VulkanRenderer() {}
 
 VulkanRenderer::~VulkanRenderer()
@@ -21,6 +29,7 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	descriptorPools.Init(device->GetLogicalDevice());
 
 	scene = std::make_unique<Scene>();
+	// TEMP: Cube for testing/reference
 	ModelLoader::LoadModel(MODEL_PATH, *device, meshBatch, *scene, descriptorPools.GetMaterialPool());
 
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
@@ -297,6 +306,26 @@ void VulkanRenderer::DrawFrame()
 		instance.mesh->Draw(commandBuffer->GetCommandBuffer(imageIndex));
 	}
 
+	if (terrainMesh)
+	{
+		// Move terrain down 5 units (positive Y goes down in Vulkan's default right-handed)
+		glm::mat4 terrainModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -50.0f, 0.0f));
+
+		// Optionally scale it up a bit
+		terrainModel = glm::scale(terrainModel, glm::vec3(2.0f, 2.0f, 2.0f));
+
+		// Push constants for terrain
+		commandBuffer->BindPushConstants(
+			terrainModel,
+			camera->GetViewMatrix(),
+			camera->GetProjectionMatrix()
+		);
+
+		// Draw terrain
+		terrainMesh->Bind(commandBuffer->GetCommandBuffer(imageIndex));
+		terrainMesh->Draw(commandBuffer->GetCommandBuffer(imageIndex));
+	}
+
 	commandBuffer->EndRecording(imageIndex);
 
 	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
@@ -428,10 +457,9 @@ void VulkanRenderer::UpdateUniformBuffer() {
 	UniformBufferObject ubo{};
 
 	ubo.model = glm::mat4(1.0f);
-	ubo.model = glm::scale(ubo.model, glm::vec3(0.05f, -0.05f, 0.05f));
+	//ubo.model = glm::scale(ubo.model, glm::vec3(0.05f, -0.05f, 0.05f));
 
 	ubo.view = camera->GetViewMatrix();
-
 	ubo.proj = camera->GetProjectionMatrix();
 
 	ubo.proj[1][1] *= -1;
@@ -450,4 +478,28 @@ std::vector<const char*> VulkanRenderer::GetRequiredExtensions()
 void VulkanRenderer::LoadModelAsync(const std::string& path)
 {
 	asyncLoader.RequestLoad(path, *device, descriptorPools.GetMaterialPool());
+}
+
+void VulkanRenderer::InitTerrain() {
+	TerrainComponent terrain;
+	terrain.width = 2048;
+	terrain.depth = 2048;
+	terrain.noiseScale = 0.01f;
+	terrain.amplitude = 5.0f;
+
+	GenerateTerrainMesh(terrain);
+
+	MeshBatch meshBatch;
+	MeshBatch::MeshRange terrainRange;
+	meshBatch.UploadMeshToGPU(*device, terrain.vertices, terrain.indices, terrainRange);
+
+	const auto& uploaded = meshBatch.GetLastUploadedMesh();
+
+	terrainMesh = std::make_unique<Mesh>(
+		uploaded.vertexBuffer,
+		uploaded.vertexMemory,
+		uploaded.indexBuffer,
+		uploaded.indexMemory,
+		terrainRange
+	);
 }
