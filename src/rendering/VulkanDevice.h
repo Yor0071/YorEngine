@@ -9,6 +9,7 @@
 
 #include "QueueFamilyIndices.h"
 #include "VulkanDepthBuffer.h"
+#include "ThreadCommandPool.h"
 
 class VulkanSwapChain;
 
@@ -21,6 +22,8 @@ public:
 	void RecreateSwapChain();
 	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue graphicsQueue);
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+	void CopyBufferToImage(VkBuffer srcBuffer, VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height);
 
 	VkPhysicalDevice GetPhysicalDevice() const { return physicalDevice; }
 	VkDevice GetLogicalDevice() const { return logicalDevice; }
@@ -30,10 +33,18 @@ public:
 	VkQueue GetGraphicsQueue() const { return graphicsQueue; }
 	VkQueue GetPresentQueue() const { return presentQueue; }
 	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
+	inline std::string GetAssetBasePath() const {
+		return "../assets/models/Main.1_Sponza/"; // or wherever Sponza's textures are located
+	}
+	ThreadCommandPool* GetThreadCommandPool() const { return threadCommandPool.get(); }
 
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 	std::mutex queueSubmitMutex;
+
+	VkResult SubmitGraphicsLocked(const VkSubmitInfo* submits, uint32_t count, VkFence fence = VK_NULL_HANDLE);
+	void WaitGraphicsIdleLocked();
+	VkResult PresentLocked(const VkPresentInfoKHR* presentInfo);
 	
 
 	// Test
@@ -54,8 +65,10 @@ private:
 	VkQueue presentQueue;
 	VkCommandPool commandPool;
 
+
 	std::unique_ptr<VulkanSwapChain> swapChain;
 	std::unique_ptr<VulkanDepthBuffer> depthBuffer;
+	std::unique_ptr<ThreadCommandPool> threadCommandPool;
 };
 
 #endif // !VULKAN_DEVICE_H

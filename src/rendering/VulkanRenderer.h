@@ -18,6 +18,8 @@
 #include "Scene.h"
 #include "MeshBatch.h"
 #include "AsyncModelLoader.h"
+#include "DescriptorPools.h"
+#include "Material.h"
 
 #include "../core/Camera.h"
 
@@ -37,14 +39,17 @@ public:
 	void UpdateUniformBuffer();
 	void Update(float deltaTime);
 	void LoadModelAsync(const std::string& path);
+	void MarkCommandBufferDirty() { commandBufferDirty = true; }
 	Camera* GetCamera() { return camera.get(); }
 	Scene& GetScene() { return *scene; }
 	VulkanDevice* GetDevice() { return device.get(); }
 	MeshBatch& GetMeshBatch() { return meshBatch; }
+	VkDescriptorPool GetDescriptorPool() const { return descriptorPools.GetMaterialPool(); }
 
 private:
 	void CreateInstance();
 	void CreateSurface(GLFWwindow* window);
+	void RebuildCommandBuffer();
 	std::vector<const char*> GetRequiredExtensions();
 
 	std::vector<Vertex> vertices;
@@ -57,8 +62,12 @@ private:
 	VkSemaphore renderFinishedSemaphore;
 	VkFence inFlightFence;
 
+	DescriptorPools descriptorPools;
+
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet descriptorSet;
+
+	VkDescriptorSet mvpDescriptorSet = VK_NULL_HANDLE;
 	
 	std::unique_ptr<VulkanDevice> device;
 	std::unique_ptr<VulkanRenderPass> renderPass;
@@ -72,6 +81,8 @@ private:
 
 	MeshBatch meshBatch;
 	AsyncModelLoader asyncLoader;
+
+	bool commandBufferDirty = false;
 };
 
 #endif // !VULKAN_RENDERER_H

@@ -28,6 +28,8 @@ public:
 
 	static bool LoadSceneCache(const std::string& path, const std::vector<std::shared_ptr<Mesh>>& meshes, Scene& outScene);
 	static void SaveSceneCache(const std::string& path, const Scene& scene, const std::vector<std::shared_ptr<Mesh>>& meshes);
+	static std::unordered_map<std::string, std::shared_ptr<Material>> materialCache;
+private:
 };
 
 #endif // !MODEL_CACHE_MANAGER_H

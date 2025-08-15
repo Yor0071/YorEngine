@@ -8,16 +8,18 @@
 #include "VulkanSwapChain.h"
 #include "VulkanRenderPass.h"
 #include "Vertex.h"
+#include "Material.h"
 
 class VulkanGraphicsPipeline
 {
 public:
-	VulkanGraphicsPipeline(VulkanDevice& device, VulkanSwapChain& swapChain, VulkanRenderPass& renderPass);
+	VulkanGraphicsPipeline(VulkanDevice& device, VulkanSwapChain& swapChain, VulkanRenderPass& renderPass, VkDescriptorSetLayout materialSetLayout);
 	~VulkanGraphicsPipeline();
 
 	VkPipeline GetPipeline() const { return graphicsPipeline; }
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout; }
-	VkDescriptorSetLayout GetDescriptorSetLayout() const { return descriptorSetLayout; }
+	VkDescriptorSetLayout GetUniformBufferLayout() const { return uniformBufferLayout; }
+	VkDescriptorSetLayout GetMaterialSetLayout() const { return materialSetLayout; }
 
 private:
 	void CreateGraphicsPipeline();
@@ -33,7 +35,8 @@ private:
 
 	VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+	VkDescriptorSetLayout uniformBufferLayout = VK_NULL_HANDLE;
+	VkDescriptorSetLayout materialSetLayout = VK_NULL_HANDLE;
 };
 
 #endif // !VULKAN_GRAPHICS_PIPELINE_H

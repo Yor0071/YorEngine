@@ -1,11 +1,18 @@
 #include "Scene.h"
 #include <iostream>
 
-void Scene::AddInstance(const glm::mat4 transform, std::shared_ptr<Mesh> mesh, uint32_t meshIndex)
+void Scene::AddInstance(const glm::mat4 transform, std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material, uint32_t meshIndex)
 {
-	instances.push_back({ transform, mesh, meshIndex });
+	instances.emplace_back(transform, std::move(mesh), std::move(material), meshIndex);
 }
 
+void Scene::UpdateMaterial(uint32_t index, std::shared_ptr<Material> newMaterial)
+{
+	if (index < instances.size())
+	{
+		instances[index].material = std::move(newMaterial);
+	}
+}
 void Scene::Upload(VulkanDevice& device)
 {
 	if (meshBatch)
