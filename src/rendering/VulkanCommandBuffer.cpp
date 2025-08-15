@@ -92,26 +92,31 @@ void VulkanCommandBuffer::EndRecording(uint32_t imageIndex)
 	}
 }
 
-void VulkanCommandBuffer::BindPushConstants(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj)
+void VulkanCommandBuffer::BindPushConstants(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj, int useTexture, const glm::vec3& baseColor)
 {
-	struct PushConstants
+	struct PushConstantsCPU 
 	{
 		glm::mat4 model;
 		glm::mat4 view;
 		glm::mat4 proj;
+		alignas(4)  int useTexture;
+		alignas(16) glm::vec3 baseColor;
 	} data;
 
 	data.model = model;
 	data.view = view;
 	data.proj = proj;
+	data.useTexture = useTexture;
+	data.baseColor = baseColor;
 
 	vkCmdPushConstants(
 		commandBuffers[currentImageIndex],
 		graphicsPipeline.GetPipelineLayout(),
-		VK_SHADER_STAGE_VERTEX_BIT,
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		0,
-		sizeof(PushConstants),
-		&data);
+		sizeof(PushConstantsCPU),
+		&data
+	);
 }
 
 VkCommandBuffer VulkanCommandBuffer::GetCommandBuffer(uint32_t imageIndex) const

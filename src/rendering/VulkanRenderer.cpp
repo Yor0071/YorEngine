@@ -138,6 +138,11 @@ void VulkanRenderer::Cleanup()
 			scene.reset();
 		}
 
+		if (terrainMesh)
+		{
+			terrainMesh.reset();
+		}
+
 		ModelCacheManager::materialCache.clear();
 		meshBatch.Destroy(device->GetLogicalDevice());
 
@@ -272,56 +277,76 @@ void VulkanRenderer::DrawFrame()
 	vkResetFences(device->GetLogicalDevice(), 1, &inFlightFence);
 
 	uint32_t imageIndex;
-	VkResult result = vkAcquireNextImageKHR(device->GetLogicalDevice(), device->GetSwapChain()->GetSwapChain(),
-		UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+	VkResult result = vkAcquireNextImageKHR(
+		device->GetLogicalDevice(),
+		device->GetSwapChain()->GetSwapChain(),
+		UINT64_MAX,
+		imageAvailableSemaphore,
+		VK_NULL_HANDLE,
+		&imageIndex);
 
-	if (result != VK_SUCCESS)
-	{
+	if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to acquire swap chain image");
 	}
 
 	UpdateUniformBuffer();
 	commandBuffer->BeginRecording(imageIndex);
 
+	// --- Draw regular scene instances (textured) ---
 	for (const auto& instance : scene->GetInstances())
 	{
 		VkDescriptorSet sets[] = {
-			mvpDescriptorSet, // from UniformBuffer
-			instance.material->GetDescriptorSet()
+			mvpDescriptorSet,                    // set=0 (UBO)
+			instance.material->GetDescriptorSet()// set=1 (material)
 		};
 
 		vkCmdBindDescriptorSets(
 			commandBuffer->GetCommandBuffer(imageIndex),
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
 			graphicsPipeline->GetPipelineLayout(),
-			0, 2, sets, 0, nullptr
-		);
+			0, 2, sets, 0, nullptr);
 
 		commandBuffer->BindPushConstants(
 			instance.transform,
 			camera->GetViewMatrix(),
-			camera->GetProjectionMatrix()
+			camera->GetProjectionMatrix(),
+			/*useTexture=*/1,
+			/*baseColor=*/glm::vec3(1.0f) // ignored by textured path
 		);
+
 		instance.mesh->Bind(commandBuffer->GetCommandBuffer(imageIndex));
 		instance.mesh->Draw(commandBuffer->GetCommandBuffer(imageIndex));
 	}
 
+	// --- Draw terrain (solid white, still lit) ---
 	if (terrainMesh)
 	{
-		// Move terrain down 5 units (positive Y goes down in Vulkan's default right-handed)
+		// Bind any valid material set for set=1 to keep validation happy.
+		VkDescriptorSet materialSet =
+			!scene->GetInstances().empty()
+			? scene->GetInstances().at(0).material->GetDescriptorSet()
+			: VK_NULL_HANDLE; // if you *never* have zero instances, this is fine
+
+		if (materialSet != VK_NULL_HANDLE) {
+			VkDescriptorSet sets[] = { mvpDescriptorSet, materialSet };
+			vkCmdBindDescriptorSets(
+				commandBuffer->GetCommandBuffer(imageIndex),
+				VK_PIPELINE_BIND_POINT_GRAPHICS,
+				graphicsPipeline->GetPipelineLayout(),
+				0, 2, sets, 0, nullptr);
+		}
+
 		glm::mat4 terrainModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -50.0f, 0.0f));
+		terrainModel = glm::scale(terrainModel, glm::vec3(2.0f));
 
-		// Optionally scale it up a bit
-		terrainModel = glm::scale(terrainModel, glm::vec3(2.0f, 2.0f, 2.0f));
-
-		// Push constants for terrain
 		commandBuffer->BindPushConstants(
 			terrainModel,
 			camera->GetViewMatrix(),
-			camera->GetProjectionMatrix()
+			camera->GetProjectionMatrix(),
+			/*useTexture=*/0,
+			/*baseColor=*/glm::vec3(0.85f)
 		);
 
-		// Draw terrain
 		terrainMesh->Bind(commandBuffer->GetCommandBuffer(imageIndex));
 		terrainMesh->Draw(commandBuffer->GetCommandBuffer(imageIndex));
 	}
@@ -337,15 +362,13 @@ void VulkanRenderer::DrawFrame()
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
-	submitInfo.commandBufferCount = 1;
 	VkCommandBuffer cmdBuffer = commandBuffer->GetCommandBuffer(imageIndex);
+	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &cmdBuffer;
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	//std::cout << "[DrawFrame] Mutex addr: " << &device->queueSubmitMutex << ", Thread ID: " << std::this_thread::get_id() << "\n";
-	if (device->SubmitGraphicsLocked(&submitInfo, 1, inFlightFence) != VK_SUCCESS)
-	{
+	if (device->SubmitGraphicsLocked(&submitInfo, 1, inFlightFence) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to submit draw command buffer!");
 	}
 
@@ -353,15 +376,13 @@ void VulkanRenderer::DrawFrame()
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
-	presentInfo.swapchainCount = 1;
 	VkSwapchainKHR swapChain = device->GetSwapChain()->GetSwapChain();
+	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = &swapChain;
 	presentInfo.pImageIndices = &imageIndex;
 
 	result = device->PresentLocked(&presentInfo);
-
-	if (result != VK_SUCCESS)
-	{
+	if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to present swap chain image!");
 	}
 }
@@ -489,12 +510,13 @@ void VulkanRenderer::InitTerrain() {
 
 	GenerateTerrainMesh(terrain);
 
-	MeshBatch meshBatch;
+	// IMPORTANT: use the member meshBatch, not a local one
 	MeshBatch::MeshRange terrainRange;
 	meshBatch.UploadMeshToGPU(*device, terrain.vertices, terrain.indices, terrainRange);
 
 	const auto& uploaded = meshBatch.GetLastUploadedMesh();
 
+	// Mesh just holds the handles; destruction will be handled by meshBatch.Destroy()
 	terrainMesh = std::make_unique<Mesh>(
 		uploaded.vertexBuffer,
 		uploaded.vertexMemory,

@@ -27,7 +27,11 @@ public:
 	void BeginRecording(uint32_t imageIndex);
 	void EndRecording(uint32_t imageIndex);
 
-	void BindPushConstants(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj);
+	void BindPushConstants(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj, int useTexture = 1, const glm::vec3& baseColor = glm::vec3(1.0f));
+	inline void BindPushConstants(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj)
+	{
+		BindPushConstants(model, view, proj, /*useTexture*/ 1, /*baseColor*/ glm::vec3(1.0f));
+	}
 
 	VkCommandBuffer GetCommandBuffer(uint32_t imageIndex) const;
 

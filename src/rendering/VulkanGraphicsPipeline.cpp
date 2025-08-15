@@ -157,10 +157,18 @@ void VulkanGraphicsPipeline::CreateGraphicsPipeline() {
     colorBlending.pAttachments = &colorBlendAttachment;
 
     // Push constants
-    VkPushConstantRange pushConstantRange{};
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(glm::mat4) * 3;
+    struct PushConstantsGPU {
+        glm::mat4 model;
+        glm::mat4 view;
+        glm::mat4 proj;
+        alignas(4)  int useTexture;
+        alignas(16) glm::vec3 baseColor;
+    };
+
+    VkPushConstantRange range{};
+    range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    range.offset = 0;
+    range.size = sizeof(PushConstantsGPU);
 
     // === Descriptor Set Layouts ===
 
@@ -191,7 +199,7 @@ void VulkanGraphicsPipeline::CreateGraphicsPipeline() {
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+    pipelineLayoutInfo.pPushConstantRanges = &range;
 
     if (vkCreatePipelineLayout(device.GetLogicalDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create pipeline layout.");
