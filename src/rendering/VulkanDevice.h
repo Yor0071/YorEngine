@@ -23,6 +23,7 @@ public:
 	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue graphicsQueue);
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+	void CopyBufferToImage(VkBuffer srcBuffer, VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height);
 
 	VkPhysicalDevice GetPhysicalDevice() const { return physicalDevice; }
 	VkDevice GetLogicalDevice() const { return logicalDevice; }
@@ -40,6 +41,10 @@ public:
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 	std::mutex queueSubmitMutex;
+
+	VkResult SubmitGraphicsLocked(const VkSubmitInfo* submits, uint32_t count, VkFence fence = VK_NULL_HANDLE);
+	void WaitGraphicsIdleLocked();
+	VkResult PresentLocked(const VkPresentInfoKHR* presentInfo);
 	
 
 	// Test

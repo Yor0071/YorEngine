@@ -198,6 +198,77 @@ void VulkanDevice::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t wi
 	vkFreeCommandBuffers(logicalDevice, threadPool, 1, &commandBuffer);
 }
 
+void VulkanDevice::CopyBufferToImage(VkBuffer srcBuffer, VkDeviceSize bufferOffset,
+	VkImage image, uint32_t width, uint32_t height)
+{
+	// Allocate a one-time command buffer from the thread-local pool
+	VkCommandPool threadPool = threadCommandPool->GetOrCreatePoolForCurrentThread();
+
+	VkCommandBufferAllocateInfo allocInfo{ };
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = threadPool;
+	allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer cmd;
+	vkAllocateCommandBuffers(logicalDevice, &allocInfo, &cmd);
+
+	VkCommandBufferBeginInfo beginInfo{ };
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	vkBeginCommandBuffer(cmd, &beginInfo);
+
+	// Transition level 0: UNDEFINED -> TRANSFER_DST_OPTIMAL
+	VkImageMemoryBarrier barrier{ };
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = image;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;  // only level 0 here
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.srcAccessMask = 0;
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+	vkCmdPipelineBarrier(cmd,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+	// Copy from src buffer (with offset) into level 0 of image
+	VkBufferImageCopy region{ };
+	region.bufferOffset = bufferOffset;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+	region.imageOffset = { 0, 0, 0 };
+	region.imageExtent = { width, height, 1 };
+
+	vkCmdCopyBufferToImage(cmd, srcBuffer, image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	vkEndCommandBuffer(cmd);
+
+	VkSubmitInfo submit{ };
+	submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit.commandBufferCount = 1;
+	submit.pCommandBuffers = &cmd;
+
+	{
+		std::lock_guard<std::mutex> lock(queueSubmitMutex);
+		vkQueueSubmit(graphicsQueue, 1, &submit, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsQueue); // simple & safe for now
+	}
+
+	vkFreeCommandBuffers(logicalDevice, threadPool, 1, &cmd);
+}
+
 void VulkanDevice::PickPhysicalDevice()
 {
 	uint32_t deviceCount = 0;
@@ -328,6 +399,24 @@ uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags
 	}
 
 	throw std::runtime_error("Failed to find suitable memory type");
+}
+
+VkResult VulkanDevice::SubmitGraphicsLocked(const VkSubmitInfo* submits, uint32_t count, VkFence fence)
+{
+	std::lock_guard<std::mutex> lock(queueSubmitMutex);
+	return vkQueueSubmit(graphicsQueue, count, submits, fence);
+}
+
+void VulkanDevice::WaitGraphicsIdleLocked()
+{
+	std::lock_guard<std::mutex> lock(queueSubmitMutex);
+	vkQueueWaitIdle(graphicsQueue);
+}
+
+VkResult VulkanDevice::PresentLocked(const VkPresentInfoKHR* presentInfo)
+{
+	std::lock_guard<std::mutex> lock(queueSubmitMutex);
+	return vkQueuePresentKHR(presentQueue, presentInfo);
 }
 
 QueueFamilyIndices VulkanDevice::FindQueueFamilies(VkPhysicalDevice device)

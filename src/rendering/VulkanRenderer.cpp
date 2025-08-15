@@ -17,6 +17,7 @@ void VulkanRenderer::Init(GLFWwindow* window)
 
 	device = std::make_unique<VulkanDevice>(vulkanInstance, surface);
 
+	Material::InitTextureStaging(*device, 16ull * 1024ull * 1024ull); // 16 MB staging buffer for textures
 	descriptorPools.Init(device->GetLogicalDevice());
 
 	scene = std::make_unique<Scene>();
@@ -134,6 +135,7 @@ void VulkanRenderer::Cleanup()
 		// Destroy material descriptor pool
 		Material::DestroySamplerCache(*device);
 		Material::DestroyDescriptorSetLayoutStatic(*device);
+		Material::DestroyTextureStaging(*device);
 		descriptorPools.Destroy();
 
 		// Destroy the descriptor pool used for the MVP uniform buffer
@@ -312,25 +314,22 @@ void VulkanRenderer::DrawFrame()
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
+	//std::cout << "[DrawFrame] Mutex addr: " << &device->queueSubmitMutex << ", Thread ID: " << std::this_thread::get_id() << "\n";
+	if (device->SubmitGraphicsLocked(&submitInfo, 1, inFlightFence) != VK_SUCCESS)
 	{
-		//std::cout << "[DrawFrame] Mutex addr: " << &device->queueSubmitMutex << ", Thread ID: " << std::this_thread::get_id() << "\n";
-		std::lock_guard<std::mutex> lock(device->queueSubmitMutex);
-		if (vkQueueSubmit(device->GetGraphicsQueue(), 1, &submitInfo, inFlightFence) != VK_SUCCESS)
-		{
-			throw std::runtime_error("Failed to submit draw command buffer!");
-		}
-
-		VkPresentInfoKHR presentInfo{};
-		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = signalSemaphores;
-		presentInfo.swapchainCount = 1;
-		VkSwapchainKHR swapChain = device->GetSwapChain()->GetSwapChain();
-		presentInfo.pSwapchains = &swapChain;
-		presentInfo.pImageIndices = &imageIndex;
-
-		result = vkQueuePresentKHR(device->GetPresentQueue(), &presentInfo);
+		throw std::runtime_error("Failed to submit draw command buffer!");
 	}
+
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = signalSemaphores;
+	presentInfo.swapchainCount = 1;
+	VkSwapchainKHR swapChain = device->GetSwapChain()->GetSwapChain();
+	presentInfo.pSwapchains = &swapChain;
+	presentInfo.pImageIndices = &imageIndex;
+
+	result = device->PresentLocked(&presentInfo);
 
 	if (result != VK_SUCCESS)
 	{

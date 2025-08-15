@@ -50,6 +50,10 @@ bool ModelLoader::TryLoadCachedMeshes(const std::string& path, VulkanDevice& dev
 
         MeshBatch::MeshRange range{};
         batch.UploadMeshToGPU(device, vertices, indices, range);
+		// Free CPU-side data after upload
+		std::vector<Vertex>().swap(vertices);
+		std::vector<uint32_t>().swap(indices);
+
         const auto& gpuMesh = batch.GetLastUploadedMesh();
 
         auto meshPtr = std::make_shared<Mesh>(
@@ -79,7 +83,6 @@ void ModelLoader::LoadWithAssimp(const std::string& path, VulkanDevice& device, 
 		aiProcess_ImproveCacheLocality |
 		aiProcess_OptimizeMeshes |
 		aiProcess_RemoveRedundantMaterials |
-		aiProcess_PreTransformVertices |
 		aiProcess_FlipUVs |
 		aiProcess_ConvertToLeftHanded
 	);
@@ -133,6 +136,10 @@ void ModelLoader::LoadWithAssimp(const std::string& path, VulkanDevice& device, 
 
 		MeshBatch::MeshRange range{};
 		batch.UploadMeshToGPU(device, vertices, indices, range);
+		// Free CPU-side data after upload
+		std::vector<Vertex>().swap(vertices);
+		std::vector<uint32_t>().swap(indices);
+
 		const auto& gpuMesh = batch.GetLastUploadedMesh();
 
 		auto meshPtr = std::make_shared<Mesh>(
