@@ -104,7 +104,11 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	worldgen = std::make_unique<WorldgenSystem>(*device, meshBatch);
 	worldgen->settings.vertsPerSide = 129; // 128 cells, 129 vertices
 	worldgen->settings.cellSize = 1.0f; // 1 meter per cell
+	worldgen->settings.skirtHeight = 0.5f; // 0.5 meter skirt height
+	worldgen->lod.maxLOD = 3; // Max LOD level (0 = highest detail)
+	worldgen->lod.fullDetailRings = 1; // Number of rings at full detail (center chunk + 1 ring)
 	worldgen->InitSingleChunk(1337u); // Initialize with a fixed seed
+	worldgen->StartWorkers(); // Start the worker thread for async generation
 
 	// ---------- Sync objects ----------
 	VkSemaphoreCreateInfo semaphoreInfo{};
@@ -137,6 +141,11 @@ void VulkanRenderer::Cleanup()
 {
 	if (device)
 	{
+		if (worldgen)
+		{
+			worldgen->Shutdown(); // Stop the worker thread
+		}
+
 		// Ensure device isn't doing any work
 		vkDeviceWaitIdle(device->GetLogicalDevice());
 
@@ -454,6 +463,7 @@ void VulkanRenderer::Update(float deltaTime)
 	if (worldgen && camera)
 	{
 		worldgen->Update(camera->GetPosition());
+		worldgen->PumpUploads(3);
 	}
 
 	if (auto result = asyncLoader.GetResult())

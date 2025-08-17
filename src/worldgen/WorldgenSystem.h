@@ -4,6 +4,12 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
+#include <deque>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
 #include <glm/glm.hpp>
 #include <limits>
 
@@ -20,6 +26,14 @@ struct AABB
 	glm::vec3 max{ 0 };
 };
 
+struct LODConfig
+{
+	int maxLOD = 4; // Max LOD level (0 = highest detail)
+	float lodBase = 2.0f;
+	float lodDistance = 80.0f; // Distance at which LOD changes
+	int fullDetailRings = 1;
+};
+
 class WorldgenSystem
 {
 public:
@@ -28,22 +42,28 @@ public:
 
 	// Settings
 	WorldgenSettings settings;
+	LODConfig lod;
 	int viewRadius = 3; // Chunks in each direction from the camera (3 = 7x7 grid)
 
 	// Life cycle
 	void InitSingleChunk(uint32_t seed = 1337u);
 
-	// Step 2 API
+	// Streaming API
 	void Update(const glm::vec3& camPos);
 	void BuildVisibleSet(const glm::mat4& view, const glm::mat4& proj);
 
-	// Acces
+	// Async life cycle
+	void StartWorkers();
+	void Shutdown();
+	void PumpUploads(int budgetMeshesPerFrame = 2);
+
+	// Access
 	const std::vector<Mesh*>& VisibleMeshes() const { return visibleMeshes; }
 
 private:
 	struct Chunk
 	{
-		WorldgenChunkKey key;
+		int cx = 0, cz = 0, lod = 0;
 		std::unique_ptr<Mesh> mesh;
 		AABB bounds;
 	};
@@ -69,13 +89,40 @@ private:
 	{
 		return float(settings.vertsPerSide - 1) * settings.cellSize;
 	}
-	void EnsureChunk(int cx, int cz);
+	
+	// --- Async job system ---
+	struct Job
+	{
+		int cx, cz, lod;
+		float priority; // Lower is higher priority
+	};
+
+	struct Result
+	{
+		int cx, cz, lod;
+		std::vector<Vertex> v;
+		std::vector<uint32_t> i;
+		AABB bounds;
+	};
+
+	std::vector<Job> jobQueue;
+	std::unordered_set<long long> queuedKeys; // To avoid duplicates
+	std::deque<Result> ready;
+
+	std::thread worker;
+	std::mutex mtx;
+	std::condition_variable cv;
+	std::atomic<bool> stop{ false };
+
+	void EnqueueJob(int cx, int cz, int lod, float priority);
+	void WorkerLoop();
+
+	// Build/rebuild GPU mesh immediately (used by InitSingleChunk)
+	void EnsureChunkLOD_Immediate(int cx, int cz, int desiredLOD);
 
 	// Frustum extraction & test
 	static void ExtractFrustumPlanes(const glm::mat4& vp, glm::vec4 outPlanes[6]);
 	static bool AABBIntersectsFrustum(const AABB& b, const glm::vec4 planes[6]);
-
-	//std::vector<std::unique_ptr<Mesh>> meshes;
 };
 
 #endif // !WORLDGEN_SYSTEM_H
