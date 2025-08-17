@@ -31,6 +31,7 @@ private:
 	double lastMouseX, lastMouseY;
 	bool firstMouse = true;
 	bool cursorEnabled = false;
+	float moveSpeed = 0.01f;
 
 	std::unordered_map<int, bool> keyWasDown;
 

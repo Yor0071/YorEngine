@@ -18,6 +18,7 @@ class Scene
 public:
 	void AddInstance(const glm::mat4 transform, std::shared_ptr<Mesh> mesh,std::shared_ptr<Material> material , uint32_t meshIndex);
 	const std::vector<ModelInstance>& GetInstances() const { return instances; }
+	std::vector<ModelInstance>& GetInstances() { return instances; }
 	void UpdateMaterial(uint32_t index, std::shared_ptr<Material> newMaterial);
 
 	void Upload(VulkanDevice& device);

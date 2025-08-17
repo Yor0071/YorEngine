@@ -13,12 +13,12 @@ void InputHandler::Update(float deltaTime)
     float right = 0.0f;
 	float up = 0.0f;
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) forward += 1.0f;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) forward -= 1.0f;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) right += 1.0f;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) right -= 1.0f;
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) up += 1.0f;
-	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) up -= 1.0f;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) forward += moveSpeed;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) forward -= moveSpeed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) right += moveSpeed;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) right -= moveSpeed;
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) up += moveSpeed;
+	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) up -= moveSpeed;
 
     camera.ProcessKeyboard(forward * deltaTime, right * deltaTime, up * deltaTime);
 

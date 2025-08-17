@@ -31,6 +31,8 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	scene = std::make_unique<Scene>();
 	// TEMP: Cube for testing/reference
 	ModelLoader::LoadModel(MODEL_PATH, *device, meshBatch, *scene, descriptorPools.GetMaterialPool());
+	auto m = glm::scale(glm::mat4(1.0), glm::vec3(0.01f));
+	scene->GetInstances().at(0).transform = m; // Scale down the cube
 
 	renderPass = std::make_unique<VulkanRenderPass>(*device, *device->GetSwapChain());
 	framebuffer = std::make_unique<VulkanFramebuffer>(*device, *device->GetSwapChain(), *renderPass, *device->GetDepthBuffer());
@@ -97,6 +99,13 @@ void VulkanRenderer::Init(GLFWwindow* window)
 		scene->GetInstances().at(0).material->GetDescriptorSet() // <- This is Set 1
 	);
 
+	// ---- initialize worldgen single chunk ----
+
+	worldgen = std::make_unique<WorldgenSystem>(*device, meshBatch);
+	worldgen->settings.vertsPerSide = 129; // 128 cells, 129 vertices
+	worldgen->settings.cellSize = 1.0f; // 1 meter per cell
+	worldgen->InitSingleChunk(1337u); // Initialize with a fixed seed
+
 	// ---------- Sync objects ----------
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -136,11 +145,6 @@ void VulkanRenderer::Cleanup()
 		{
 			scene->Clear();
 			scene.reset();
-		}
-
-		if (terrainMesh)
-		{
-			terrainMesh.reset();
 		}
 
 		ModelCacheManager::materialCache.clear();
@@ -318,16 +322,16 @@ void VulkanRenderer::DrawFrame()
 		instance.mesh->Draw(commandBuffer->GetCommandBuffer(imageIndex));
 	}
 
-	// --- Draw terrain (solid white, still lit) ---
-	if (terrainMesh)
+	// -- Draw terrain (solid white, still lit) --
+	if (worldgen)
 	{
-		// Bind any valid material set for set=1 to keep validation happy.
-		VkDescriptorSet materialSet =
+		VkDescriptorSet materialSet = 
 			!scene->GetInstances().empty()
 			? scene->GetInstances().at(0).material->GetDescriptorSet()
-			: VK_NULL_HANDLE; // if you *never* have zero instances, this is fine
+			: VK_NULL_HANDLE;
 
-		if (materialSet != VK_NULL_HANDLE) {
+		if (materialSet != VK_NULL_HANDLE)
+		{
 			VkDescriptorSet sets[] = { mvpDescriptorSet, materialSet };
 			vkCmdBindDescriptorSets(
 				commandBuffer->GetCommandBuffer(imageIndex),
@@ -336,19 +340,22 @@ void VulkanRenderer::DrawFrame()
 				0, 2, sets, 0, nullptr);
 		}
 
-		glm::mat4 terrainModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -50.0f, 0.0f));
-		terrainModel = glm::scale(terrainModel, glm::vec3(2.0f));
+		glm::mat4 model(1.0f);
 
 		commandBuffer->BindPushConstants(
-			terrainModel,
+			model,
 			camera->GetViewMatrix(),
 			camera->GetProjectionMatrix(),
-			/*useTexture=*/0,
-			/*baseColor=*/glm::vec3(0.85f)
+			/*useTexture=*/0, // No texture for terrain
+			/*baseColor=*/glm::vec3(0.85f) // Solid white color for terrain
 		);
 
-		terrainMesh->Bind(commandBuffer->GetCommandBuffer(imageIndex));
-		terrainMesh->Draw(commandBuffer->GetCommandBuffer(imageIndex));
+		for (const auto& m : worldgen->Meshes())
+		{
+			if (!m) continue;
+			m->Bind(commandBuffer->GetCommandBuffer(imageIndex));
+			m->Draw(commandBuffer->GetCommandBuffer(imageIndex));
+		}
 	}
 
 	commandBuffer->EndRecording(imageIndex);
@@ -499,29 +506,4 @@ std::vector<const char*> VulkanRenderer::GetRequiredExtensions()
 void VulkanRenderer::LoadModelAsync(const std::string& path)
 {
 	asyncLoader.RequestLoad(path, *device, descriptorPools.GetMaterialPool());
-}
-
-void VulkanRenderer::InitTerrain() {
-	TerrainComponent terrain;
-	terrain.width = 2048;
-	terrain.depth = 2048;
-	terrain.noiseScale = 0.01f;
-	terrain.amplitude = 5.0f;
-
-	GenerateTerrainMesh(terrain);
-
-	// IMPORTANT: use the member meshBatch, not a local one
-	MeshBatch::MeshRange terrainRange;
-	meshBatch.UploadMeshToGPU(*device, terrain.vertices, terrain.indices, terrainRange);
-
-	const auto& uploaded = meshBatch.GetLastUploadedMesh();
-
-	// Mesh just holds the handles; destruction will be handled by meshBatch.Destroy()
-	terrainMesh = std::make_unique<Mesh>(
-		uploaded.vertexBuffer,
-		uploaded.vertexMemory,
-		uploaded.indexBuffer,
-		uploaded.indexMemory,
-		terrainRange
-	);
 }
