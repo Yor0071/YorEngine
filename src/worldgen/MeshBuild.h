@@ -13,6 +13,8 @@ struct WorldgenSettings
 	int vertsPerSide = 129;
 	float cellSize = 1.0f;
 	float skirtHeight = 0.5f;
+	float heightscale = 1.0f;
+	float heightBias = 0.0f;
 };
 
 struct WorldgenChunkKey { int cx = 0, cz = 0, lod = 0; };

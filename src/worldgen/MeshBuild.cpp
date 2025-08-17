@@ -66,7 +66,7 @@ void buildChunkMesh(const IWorldGenerator& gen, const WorldgenSettings& settings
 			int hx = x * step; int hz = z * step;
 			float wx = ox + hx * settings.cellSize;
 			float wz = oz + hz * settings.cellSize;
-			float wy = gen.height(wx, wz);
+			float wy = settings.heightscale * gen.height(wx, wz) + settings.heightBias;
             
             Vertex v{};
 			v.pos = { wx, wy, wz };
