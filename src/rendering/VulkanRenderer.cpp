@@ -325,13 +325,13 @@ void VulkanRenderer::DrawFrame()
 	// -- Draw terrain (solid white, still lit) --
 	if (worldgen)
 	{
-		VkDescriptorSet materialSet = 
-			!scene->GetInstances().empty()
+		worldgen->BuildVisibleSet(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+
+		VkDescriptorSet materialSet = !scene->GetInstances().empty()
 			? scene->GetInstances().at(0).material->GetDescriptorSet()
 			: VK_NULL_HANDLE;
 
-		if (materialSet != VK_NULL_HANDLE)
-		{
+		if (materialSet != VK_NULL_HANDLE) {
 			VkDescriptorSet sets[] = { mvpDescriptorSet, materialSet };
 			vkCmdBindDescriptorSets(
 				commandBuffer->GetCommandBuffer(imageIndex),
@@ -341,17 +341,15 @@ void VulkanRenderer::DrawFrame()
 		}
 
 		glm::mat4 model(1.0f);
-
 		commandBuffer->BindPushConstants(
 			model,
 			camera->GetViewMatrix(),
 			camera->GetProjectionMatrix(),
-			/*useTexture=*/0, // No texture for terrain
-			/*baseColor=*/glm::vec3(0.85f) // Solid white color for terrain
+			/*useTexture=*/0,
+			/*baseColor=*/glm::vec3(0.85f)
 		);
 
-		for (const auto& m : worldgen->Meshes())
-		{
+		for (Mesh* m : worldgen->VisibleMeshes()) {
 			if (!m) continue;
 			m->Bind(commandBuffer->GetCommandBuffer(imageIndex));
 			m->Draw(commandBuffer->GetCommandBuffer(imageIndex));
@@ -451,6 +449,11 @@ void VulkanRenderer::Update(float deltaTime)
 	if (inputHandler)
 	{
 		inputHandler->Update(deltaTime);
+	}
+
+	if (worldgen && camera)
+	{
+		worldgen->Update(camera->GetPosition());
 	}
 
 	if (auto result = asyncLoader.GetResult())
