@@ -3,6 +3,13 @@
 #include <stdexcept>
 #include "Vertex.h"
 
+struct GroundController
+{
+	float eyeHeight = 1.7f; // Camera height above ground
+	float vy = 0.0f; // Vertical speed
+	bool grounded = false; // Is the camera on the ground
+} ground;
+
 static inline glm::mat4 MakeTerrainModel(float yDown, float uniformScale = 1.0f)
 {
 	glm::mat4 m(1.0f);
@@ -132,6 +139,14 @@ void VulkanRenderer::Init(GLFWwindow* window)
 	// ---------- Camera and Input ----------
 	float aspect = (float)device->GetSwapChain()->GetSwapChainExtent().width / (float)device->GetSwapChain()->GetSwapChainExtent().height;
 	camera = std::make_unique<Camera>(45.0f, aspect, 0.1f, 10000.0f);
+
+	{
+		glm::vec3 p = camera->GetPosition();
+		float h = worldgen->SampleHeight(p.x, p.z);
+		camera->SetPosition({ p.x, h + ground.eyeHeight, p.z });
+		ground.grounded = true; 
+		ground.vy = 0.0f;
+	}
 
 	inputHandler = std::make_unique<InputHandler>(window, *camera);
 	inputHandler->SetOnReloadShaders([this]() { this->ReloadShaders(); });
@@ -465,6 +480,27 @@ void VulkanRenderer::Update(float deltaTime)
 		worldgen->Update(camera->GetPosition());
 		worldgen->PumpUploads(3);
 	}
+
+	// gravity & ground clamp
+	const float g = 9.81f;                 // m/s^2
+	glm::vec3 p = camera->GetPosition();
+
+	// apply gravity if not grounded (or always; clamp will handle the rest)
+	ground.vy -= g * deltaTime;
+	p.y += ground.vy * deltaTime;
+
+	// terrain collision
+	float groundY = worldgen->SampleHeight(p.x, p.z) + ground.eyeHeight;
+	if (p.y <= groundY) {
+		p.y = groundY;
+		ground.vy = 0.0f;
+		ground.grounded = true;
+	}
+	else {
+		ground.grounded = false;
+	}
+
+	camera->SetPosition(p);
 
 	if (auto result = asyncLoader.GetResult())
 	{

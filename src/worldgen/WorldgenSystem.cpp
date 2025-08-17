@@ -263,3 +263,21 @@ bool WorldgenSystem::AABBIntersectsFrustum(const AABB& b, const glm::vec4 planes
 	}
 	return true;
 }
+
+float WorldgenSystem::SampleHeight(float x, float z) const
+{
+	return generator ? generator->height(x, z) : 0.0f;
+}
+
+glm::vec3 WorldgenSystem::SampleNormal(float x, float z) const
+{
+	if (!generator) return glm::vec3(0.0f, 1.0f, 0.0f); // default normal
+	const float e = std::max(0.01f, settings.cellSize);
+	float hL = generator->height(x - e, z);
+	float hR = generator->height(x + e, z);
+	float hD = generator->height(x, z - e);
+	float hU = generator->height(x, z + e);
+	float dhdx = (hR - hL) / (2.0f * e);
+	float dhdz = (hU - hD) / (2.0f * e);
+	return glm::normalize(glm::vec3(-dhdx, 1.0f, -dhdz));
+}

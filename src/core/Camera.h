@@ -19,6 +19,7 @@ public:
 	void SetAspectRatio(float aspectRatio) { this->aspectRatio = aspectRatio; }
 
 	glm::vec3 GetPosition() const { return position; }
+	glm::vec3 SetPosition(const glm::vec3& pos) { position = pos; UpdateVectors(); return position; }
 
 private:
 	void UpdateVectors();

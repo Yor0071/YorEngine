@@ -60,6 +60,9 @@ public:
 	// Access
 	const std::vector<Mesh*>& VisibleMeshes() const { return visibleMeshes; }
 
+	float SampleHeight(float x, float z) const;
+	glm::vec3 SampleNormal(float x, float z) const;
+
 private:
 	struct Chunk
 	{
