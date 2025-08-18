@@ -87,6 +87,15 @@ private:
 	AsyncModelLoader asyncLoader;
 
 	bool commandBufferDirty = false;
+
+	GLFWwindow* windowHandle = nullptr;
+
+	double fpsAccum = 0.0;
+	int fpsFrames = 0;
+	float fpsValue = 0.0f;
+	float msPerFrame = 0.0f;
+
+	void UpdateFPS(float dt);
 };
 
 #endif // !VULKAN_RENDERER_H

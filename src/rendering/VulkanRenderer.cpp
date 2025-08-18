@@ -20,6 +20,8 @@ VulkanRenderer::~VulkanRenderer()
 
 void VulkanRenderer::Init(GLFWwindow* window)
 {
+	windowHandle = window;
+
 	CreateInstance();
 	CreateSurface(window);
 
@@ -491,6 +493,8 @@ void VulkanRenderer::Update(float deltaTime)
 			std::cerr << "[VulkanRenderer] Failed to load model async\n";
 		}
 	}
+
+	UpdateFPS(deltaTime);
 }
 
 
@@ -519,4 +523,25 @@ std::vector<const char*> VulkanRenderer::GetRequiredExtensions()
 void VulkanRenderer::LoadModelAsync(const std::string& path)
 {
 	asyncLoader.RequestLoad(path, *device, descriptorPools.GetMaterialPool());
+}
+
+void VulkanRenderer::UpdateFPS(float dt)
+{
+	fpsFrames++;
+	fpsAccum += dt;
+
+	if (fpsAccum >= 0.5) { // update title twice per second
+		fpsValue = static_cast<float>(fpsFrames / fpsAccum);
+		msPerFrame = (fpsValue > 0.0001f) ? (1000.0f / fpsValue) : 0.0f;
+
+		if (windowHandle) {
+			char title[160];
+			std::snprintf(title, sizeof(title),
+				"YorEngine  |  %.1f FPS (%.2f ms)", fpsValue, msPerFrame);
+			glfwSetWindowTitle(windowHandle, title);
+		}
+
+		fpsFrames = 0;
+		fpsAccum = 0.0;
+	}
 }
